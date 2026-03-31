@@ -155,7 +155,7 @@ void main() {
         writer.writeAsUint8(
           1,
           Uint8List.fromList([10, 20, 30, 40]),
-          window: const RasterWindow(
+          window: RasterWindow(
               xOffset: 1, yOffset: 1, width: 2, height: 2),
         );
         writer.close();
@@ -245,6 +245,41 @@ void main() {
         } finally {
           writer.close();
         }
+      });
+
+      test('geoTransform getter reads back what was set', () {
+        final path = tmpPath('gt_readback.tif');
+        final gt = GeoTransform.fromList([10.0, 0.5, 0.0, 50.0, 0.0, -0.5]);
+        final writer = gdal.createGeoTiff(path, width: 2, height: 2);
+        try {
+          writer.setGeoTransform(gt);
+          expect(writer.geoTransform, equals(gt));
+        } finally {
+          writer.close();
+        }
+      });
+
+      test('projectionWkt getter reads back what was set', () {
+        final path = tmpPath('proj_readback.tif');
+        final srs = gdal.spatialReferenceFromEpsg(4326);
+        final wkt = srs.toWkt();
+        srs.close();
+
+        final writer = gdal.createGeoTiff(path, width: 2, height: 2);
+        try {
+          writer.setProjection(wkt);
+          expect(writer.projectionWkt, contains('WGS'));
+        } finally {
+          writer.close();
+        }
+      });
+
+      test('throws GdalFileException for invalid path', () {
+        expect(
+          () => gdal.createGeoTiff('/no/such/dir/file.tif',
+              width: 2, height: 2),
+          throwsA(isA<GdalFileException>()),
+        );
       });
     },
   );

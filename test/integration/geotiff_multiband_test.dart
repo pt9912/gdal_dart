@@ -72,7 +72,7 @@ void main() {
       });
 
       test('windowed read across bands', () {
-        const window =
+        final window =
             RasterWindow(xOffset: 1, yOffset: 1, width: 2, height: 2);
         // Band 1 row-major: 100..103, 104..107, 108..111, 112..115
         // Window at (1,1) 2x2 → [105,106,109,110]

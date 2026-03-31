@@ -177,7 +177,7 @@ void main() {
       test('overview readAsUint8 with window', () {
         final ov = ds.band(1).overview(0);
         final data = ov.readAsUint8(
-          window: const RasterWindow(
+          window: RasterWindow(
               xOffset: 0, yOffset: 0, width: 4, height: 4),
         );
         expect(data.length, 16);

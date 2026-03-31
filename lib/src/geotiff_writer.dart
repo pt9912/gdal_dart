@@ -7,20 +7,23 @@ import 'model/geo_transform.dart';
 import 'model/raster_data_type.dart';
 import 'model/raster_window.dart';
 import 'native/gdal_api.dart';
+import 'native/gdal_constants.dart';
 import 'native/gdal_errors.dart';
 
 /// Creates and writes a new GeoTIFF file.
 ///
-/// Obtained via [Gdal.createGeoTiff]. Must be closed after use to flush
-/// data to disk:
+/// Obtained via [Gdal.createGeoTiff]. **Must be closed after use** to
+/// flush data to disk — data may be lost if [close] is not called:
 ///
 /// ```dart
 /// final writer = gdal.createGeoTiff('output.tif', width: 256, height: 256);
 /// writer.setGeoTransform(GeoTransform(...));
 /// writer.setProjection(wktString);
 /// writer.writeAsUint8(1, pixelData);
-/// writer.close();
+/// writer.close(); // mandatory — flushes data to disk
 /// ```
+///
+/// Accessing any method after [close] throws [GdalDatasetClosedException].
 class GeoTiffWriter {
   final GdalApi _api;
   final Pointer<Void> _handle;
@@ -36,7 +39,7 @@ class GeoTiffWriter {
 
   /// Creates a new GeoTIFF file via the GTiff driver.
   ///
-  /// Throws [GdalException] if the driver is not found or creation fails.
+  /// Throws [GdalFileException] if creation fails.
   factory GeoTiffWriter.create(
     GdalApi api,
     String path, {
@@ -81,7 +84,8 @@ class GeoTiffWriter {
         optionList,
       );
       if (handle == nullptr) {
-        throw GdalException('Failed to create GeoTIFF: $path');
+        throw GdalFileException(
+            'Failed to create GeoTIFF: $path', path: path);
       }
       return GeoTiffWriter._(api, handle, width, height, bandCount, dataType);
     } finally {
@@ -109,6 +113,8 @@ class GeoTiffWriter {
 
   /// Whether this writer has been closed.
   bool get isClosed => _closed;
+
+  // --- Setters ---
 
   /// Sets the affine GeoTransform.
   void setGeoTransform(GeoTransform transform) {
@@ -155,43 +161,71 @@ class GeoTiffWriter {
     }
   }
 
+  // --- Getters (read back written metadata) ---
+
+  /// Reads back the GeoTransform that was set on this dataset.
+  ///
+  /// Throws [GdalException] if no GeoTransform has been set.
+  GeoTransform get geoTransform {
+    _ensureOpen();
+    final buffer = calloc<Double>(6);
+    try {
+      final err = _api.getGeoTransform(_handle, buffer);
+      if (err != 0) {
+        throw GdalException('Failed to read GeoTransform (CPLErr: $err)');
+      }
+      return GeoTransform.fromList(
+        List<double>.generate(6, (i) => buffer[i]),
+      );
+    } finally {
+      calloc.free(buffer);
+    }
+  }
+
+  /// Reads back the projection WKT that was set on this dataset.
+  String get projectionWkt {
+    _ensureOpen();
+    return _api.getProjectionRef(_handle);
+  }
+
+  // --- Write operations ---
+
   /// Writes [Uint8List] data to band [bandIndex] (1-based).
   void writeAsUint8(int bandIndex, Uint8List data, {RasterWindow? window}) {
-    final w = window ?? _fullWindow();
-    _writeRaw(bandIndex, w, data.buffer.asUint8List(), RasterDataType.byte_);
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.byte_);
   }
 
   /// Writes [Uint16List] data to band [bandIndex] (1-based).
   void writeAsUint16(int bandIndex, Uint16List data, {RasterWindow? window}) {
-    final w = window ?? _fullWindow();
-    _writeRaw(bandIndex, w, data.buffer.asUint8List(), RasterDataType.uint16);
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.uint16);
   }
 
   /// Writes [Int16List] data to band [bandIndex] (1-based).
   void writeAsInt16(int bandIndex, Int16List data, {RasterWindow? window}) {
-    final w = window ?? _fullWindow();
-    _writeRaw(bandIndex, w, data.buffer.asUint8List(), RasterDataType.int16);
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.int16);
   }
 
   /// Writes [Float32List] data to band [bandIndex] (1-based).
   void writeAsFloat32(int bandIndex, Float32List data,
       {RasterWindow? window}) {
-    final w = window ?? _fullWindow();
-    _writeRaw(
-        bandIndex, w, data.buffer.asUint8List(), RasterDataType.float32);
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.float32);
   }
 
   /// Writes [Float64List] data to band [bandIndex] (1-based).
   void writeAsFloat64(int bandIndex, Float64List data,
       {RasterWindow? window}) {
-    final w = window ?? _fullWindow();
-    _writeRaw(
-        bandIndex, w, data.buffer.asUint8List(), RasterDataType.float64);
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.float64);
   }
 
   /// Closes the writer, flushes data, and releases the native handle.
   ///
-  /// Idempotent.
+  /// **Must be called** to ensure data is written to disk.
+  /// Idempotent — calling [close] on an already closed writer is a no-op.
   void close() {
     if (!_closed) {
       _api.flushCache(_handle);
@@ -214,7 +248,7 @@ class GeoTiffWriter {
       buf.asTypedList(rawBytes.length).setAll(0, rawBytes);
       final err = _api.rasterIO(
         bandHandle,
-        1, // GF_Write
+        gfWrite,
         w.xOffset,
         w.yOffset,
         w.width,
@@ -227,8 +261,7 @@ class GeoTiffWriter {
         0,
       );
       if (err != 0) {
-        throw GdalException(
-            'GDALRasterIO write failed (CPLErr: $err)');
+        throw GdalIOException('GDALRasterIO write failed (CPLErr: $err)');
       }
     } finally {
       calloc.free(buf);

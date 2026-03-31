@@ -7,6 +7,7 @@ import 'geotiff_dataset.dart';
 import 'model/raster_data_type.dart';
 import 'model/raster_window.dart';
 import 'native/gdal_api.dart';
+import 'native/gdal_constants.dart';
 import 'native/gdal_errors.dart';
 
 /// A single raster band within a [GeoTiffDataset].
@@ -22,6 +23,8 @@ class RasterBand {
   final GeoTiffDataset _dataset;
 
   /// The 1-based band index within the parent dataset.
+  ///
+  /// Band indices in GDAL start at 1, not 0.
   final int index;
 
   RasterBand._(this._api, this._handle, this._dataset, this.index);
@@ -110,7 +113,7 @@ class RasterBand {
   Uint8List readAsUint8({RasterWindow? window}) {
     final w = window ?? _fullWindow();
     final count = w.width * w.height;
-    final buf = _readRaw(w, RasterDataType.byte_.gdalValue, 1, count);
+    final buf = _readRaw(w, RasterDataType.byte_);
     try {
       return Uint8List.fromList(buf.cast<Uint8>().asTypedList(count));
     } finally {
@@ -122,7 +125,7 @@ class RasterBand {
   Uint16List readAsUint16({RasterWindow? window}) {
     final w = window ?? _fullWindow();
     final count = w.width * w.height;
-    final buf = _readRaw(w, RasterDataType.uint16.gdalValue, 2, count);
+    final buf = _readRaw(w, RasterDataType.uint16);
     try {
       return Uint16List.fromList(buf.cast<Uint16>().asTypedList(count));
     } finally {
@@ -134,7 +137,7 @@ class RasterBand {
   Int16List readAsInt16({RasterWindow? window}) {
     final w = window ?? _fullWindow();
     final count = w.width * w.height;
-    final buf = _readRaw(w, RasterDataType.int16.gdalValue, 2, count);
+    final buf = _readRaw(w, RasterDataType.int16);
     try {
       return Int16List.fromList(buf.cast<Int16>().asTypedList(count));
     } finally {
@@ -146,7 +149,7 @@ class RasterBand {
   Float32List readAsFloat32({RasterWindow? window}) {
     final w = window ?? _fullWindow();
     final count = w.width * w.height;
-    final buf = _readRaw(w, RasterDataType.float32.gdalValue, 4, count);
+    final buf = _readRaw(w, RasterDataType.float32);
     try {
       return Float32List.fromList(buf.cast<Float>().asTypedList(count));
     } finally {
@@ -158,7 +161,7 @@ class RasterBand {
   Float64List readAsFloat64({RasterWindow? window}) {
     final w = window ?? _fullWindow();
     final count = w.width * w.height;
-    final buf = _readRaw(w, RasterDataType.float64.gdalValue, 8, count);
+    final buf = _readRaw(w, RasterDataType.float64);
     try {
       return Float64List.fromList(buf.cast<Double>().asTypedList(count));
     } finally {
@@ -212,7 +215,7 @@ class RasterBand {
     try {
       final err = _api.readBlock(_handle, xBlock, yBlock, buf.cast<Void>());
       if (err != 0) {
-        throw GdalException('GDALReadBlock failed (CPLErr: $err)');
+        throw GdalIOException('GDALReadBlock failed (CPLErr: $err)');
       }
       return Uint8List.fromList(buf.asTypedList(bufSize));
     } finally {
@@ -232,6 +235,7 @@ class RasterBand {
   ///
   /// The overview band has its own [width], [height], and [blockWidth] /
   /// [blockHeight], and supports all the same read operations.
+  /// Its lifecycle is tied to the parent dataset.
   ///
   /// Throws [GdalException] if [level] is out of range.
   RasterBand overview(int level) {
@@ -246,13 +250,13 @@ class RasterBand {
 
   // --- Internal ---
 
-  Pointer<Void> _readRaw(
-      RasterWindow w, int gdalType, int elementSize, int count) {
+  Pointer<Void> _readRaw(RasterWindow w, RasterDataType type) {
     _ensureDatasetOpen();
-    final buf = calloc<Uint8>(count * elementSize);
+    final count = w.width * w.height;
+    final buf = calloc<Uint8>(count * type.sizeInBytes);
     final err = _api.rasterIO(
       _handle,
-      0, // GF_Read
+      gfRead,
       w.xOffset,
       w.yOffset,
       w.width,
@@ -260,13 +264,13 @@ class RasterBand {
       buf.cast<Void>(),
       w.width,
       w.height,
-      gdalType,
-      0, // default pixel spacing
-      0, // default line spacing
+      type.gdalValue,
+      0,
+      0,
     );
     if (err != 0) {
       calloc.free(buf);
-      throw GdalException('GDALRasterIO failed (CPLErr: $err)');
+      throw GdalIOException('GDALRasterIO read failed (CPLErr: $err)');
     }
     return buf.cast<Void>();
   }

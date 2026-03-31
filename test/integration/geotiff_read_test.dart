@@ -53,7 +53,7 @@ void main() {
       test('readAsUint8 with window reads a sub-region', () {
         // Read the top-left 2x2 window → values [1,2,5,6]
         final data = ds.band(1).readAsUint8(
-              window: const RasterWindow(
+              window: RasterWindow(
                   xOffset: 0, yOffset: 0, width: 2, height: 2),
             );
         expect(data.length, 4);
@@ -65,7 +65,7 @@ void main() {
         // Row 0: [1,2,3,4], Row 1: [5,6,7,8], Row 2: [9,10,11,12]
         // Window at (2,1) 2x2 → [7,8,11,12]
         final data = ds.band(1).readAsUint8(
-              window: const RasterWindow(
+              window: RasterWindow(
                   xOffset: 2, yOffset: 1, width: 2, height: 2),
             );
         expect(data, orderedEquals([7, 8, 11, 12]));

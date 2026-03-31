@@ -4,6 +4,7 @@ import 'package:ffi/ffi.dart';
 
 import 'model/geo_transform.dart';
 import 'native/gdal_api.dart';
+import 'native/gdal_constants.dart';
 import 'native/gdal_errors.dart';
 import 'native/gdal_srs.dart';
 import 'raster_band.dart';
@@ -11,18 +12,22 @@ import 'spatial_reference.dart';
 
 /// A read-only handle to an opened GeoTIFF dataset.
 ///
-/// Obtained via [Gdal.openGeoTiff]. Must be closed after use:
+/// Obtained via [Gdal.openGeoTiff]. Must be closed after use to release
+/// the native GDAL dataset handle:
 ///
 /// ```dart
 /// final dataset = gdal.openGeoTiff('example.tif');
 /// try {
-///   print(dataset.width);
+///   print('${dataset.width} x ${dataset.height}');
 ///   final band = dataset.band(1);
 ///   final pixels = band.readAsUint8();
 /// } finally {
 ///   dataset.close();
 /// }
 /// ```
+///
+/// Accessing any property or method after [close] throws
+/// [GdalDatasetClosedException].
 class GeoTiffDataset {
   final GdalApi _api;
   final GdalSrs _srs;
@@ -33,16 +38,14 @@ class GeoTiffDataset {
 
   /// Opens a GeoTIFF file as a read-only dataset.
   ///
-  /// Throws [GdalException] if the file cannot be opened.
+  /// Throws [GdalFileException] if the file cannot be opened.
   factory GeoTiffDataset.open(GdalApi api, GdalSrs srs, String path) {
-    // GDAL_OF_READONLY | GDAL_OF_RASTER
-    const openFlags = 0x00 | 0x02;
-
     final pathPtr = path.toNativeUtf8(allocator: calloc);
     try {
-      final handle = api.openEx(pathPtr, openFlags);
+      final handle =
+          api.openEx(pathPtr, gdalOfReadonly | gdalOfRaster);
       if (handle == nullptr) {
-        throw GdalException('Failed to open GeoTIFF: $path');
+        throw GdalFileException('Failed to open GeoTIFF: $path', path: path);
       }
       return GeoTiffDataset._(api, srs, handle);
     } finally {
@@ -50,7 +53,11 @@ class GeoTiffDataset {
     }
   }
 
-  /// The native dataset handle. Used internally by [RasterBand].
+  /// The native dataset handle.
+  ///
+  /// This is an internal implementation detail used by [RasterBand].
+  /// It is not part of the public API contract and may be removed in a
+  /// future release.
   Pointer<Void> get nativeHandle {
     _ensureOpen();
     return _handle;
@@ -75,6 +82,8 @@ class GeoTiffDataset {
   }
 
   /// Projection as a WKT string.
+  ///
+  /// Returns an empty string if no projection is defined.
   String get projectionWkt {
     _ensureOpen();
     return _api.getProjectionRef(_handle);
@@ -82,7 +91,7 @@ class GeoTiffDataset {
 
   /// Returns a new [SpatialReference] for this dataset's CRS.
   ///
-  /// The returned reference is independently owned and must be closed
+  /// The returned reference is independently owned and **must be closed**
   /// by the caller.
   ///
   /// Throws [GdalException] if the dataset has no valid CRS.
@@ -112,9 +121,10 @@ class GeoTiffDataset {
     }
   }
 
-  /// Returns the [RasterBand] at 1-based [index].
+  /// Returns the [RasterBand] at the given 1-based [index].
   ///
-  /// Throws [GdalException] if the index is out of range.
+  /// Band indices start at 1. Throws [GdalException] if the index is
+  /// out of range.
   RasterBand band(int index) {
     _ensureOpen();
     return RasterBand.fromDataset(_api, this, index);

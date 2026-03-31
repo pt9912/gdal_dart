@@ -35,4 +35,37 @@ void main() {
       expect(e.toString(), 'GdalDatasetClosedException: already closed');
     });
   });
+
+  group('GdalFileException', () {
+    test('is a GdalException', () {
+      expect(GdalFileException('x'), isA<GdalException>());
+    });
+
+    test('stores optional path', () {
+      final e = GdalFileException('not found', path: '/some/file.tif');
+      expect(e.path, '/some/file.tif');
+      expect(e.message, 'not found');
+    });
+
+    test('path is null when not provided', () {
+      final e = GdalFileException('error');
+      expect(e.path, isNull);
+    });
+
+    test('toString includes type', () {
+      final e = GdalFileException('fail');
+      expect(e.toString(), 'GdalFileException: fail');
+    });
+  });
+
+  group('GdalIOException', () {
+    test('is a GdalException', () {
+      expect(GdalIOException('x'), isA<GdalException>());
+    });
+
+    test('toString includes type', () {
+      final e = GdalIOException('read failed');
+      expect(e.toString(), 'GdalIOException: read failed');
+    });
+  });
 }

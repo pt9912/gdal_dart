@@ -49,26 +49,27 @@ void main() {
 
       setUp(() => gdal = Gdal());
 
-      test('throws for nonexistent file', () {
+      test('throws GdalFileException for nonexistent file', () {
         expect(
           () => gdal.openGeoTiff('/nonexistent/path/file.tif'),
-          throwsA(isA<GdalException>()),
+          throwsA(isA<GdalFileException>()),
         );
       });
 
-      test('throws for invalid file format', () {
+      test('throws GdalFileException for invalid file format', () {
         expect(
           () => gdal.openGeoTiff(_invalidPath),
-          throwsA(isA<GdalException>()),
+          throwsA(isA<GdalFileException>()),
         );
       });
 
-      test('exception message contains the file path', () {
+      test('GdalFileException contains the file path', () {
         try {
           gdal.openGeoTiff('/no/such/file.tif');
           fail('should throw');
-        } on GdalException catch (e) {
+        } on GdalFileException catch (e) {
           expect(e.message, contains('/no/such/file.tif'));
+          expect(e.path, '/no/such/file.tif');
         }
       });
     },
