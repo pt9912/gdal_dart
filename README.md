@@ -1,54 +1,91 @@
 # gdal_dart
 
-`gdal_dart` ist ein Dart-FFI-Paket für GeoTIFF-Funktionalität auf Basis von GDAL.
-Der Schwerpunkt liegt zunächst auf einem kleinen, stabilen Read-only-Kern für Rasterdaten und Metadaten.
+Dart-FFI-Paket für GeoTIFF-Funktionalität auf Basis von GDAL.
 
-## Status
+Lesen, Schreiben und Abfragen von GeoTIFF-Dateien aus Dart — typisiert, mit klar gekapselter nativer Schicht.
 
-Das Repository enthält aktuell die Architektur- und Umsetzungsplanung.
-Die Implementierung des Pakets wird schrittweise aufgebaut.
-Ein vollständiges Dart-Paket-Scaffold mit `pubspec.yaml` ist aktuell noch nicht vorhanden.
+## Voraussetzungen
 
-- Architektur: [docs/architecture.md](docs/architecture.md)
-- Roadmap: [docs/roadmap.md](docs/roadmap.md)
+GDAL muss als Shared Library auf dem System installiert sein:
 
-## Ziel
+| Plattform | Paket / Befehl |
+|---|---|
+| Debian / Ubuntu | `sudo apt-get install gdal-bin libgdal-dev` |
+| macOS (Homebrew) | `brew install gdal` |
+| Windows | GDAL-Binaries von [gisinternals.com](https://www.gisinternals.com/) oder OSGeo4W |
 
-Geplant ist eine API auf Basis von:
+Alternativ kann der mitgelieferte [`Dockerfile`](Dockerfile) für eine reproduzierbare Umgebung genutzt werden.
 
-- `dart:ffi` für den Zugriff auf die GDAL-C-API
-- `ffigen` für generierte Low-Level-Bindings
+Die Library wird automatisch über den Plattform-Standardnamen geladen (`libgdal.so`, `libgdal.dylib`, `gdal.dll`).
+Über die Umgebungsvariable `GDAL_LIBRARY_PATH` oder den Parameter `libraryPath` kann ein expliziter Pfad angegeben werden.
 
-Die erste Ausbaustufe fokussiert:
+## Quick Start
 
-- GeoTIFF-Dateien öffnen
-- Raster-Metadaten lesen
-- Banddaten typisiert lesen
+```dart
+import 'package:gdal_dart/gdal_dart.dart';
+
+void main() {
+  final gdal = Gdal();
+
+  // --- Lesen ---
+  final dataset = gdal.openGeoTiff('input.tif');
+  print('${dataset.width} x ${dataset.height}, ${dataset.bandCount} Bänder');
+  print('CRS: ${dataset.spatialReference.authorityCode}');
+
+  final band = dataset.band(1);
+  final pixels = band.readAsUint8();
+  print('Erster Pixel: ${pixels[0]}');
+  dataset.close();
+
+  // --- Schreiben ---
+  final writer = gdal.createGeoTiff('output.tif', width: 256, height: 256);
+  writer.setGeoTransform(GeoTransform(
+    originX: 10.0, pixelWidth: 0.01, rotationX: 0.0,
+    originY: 50.0, rotationY: 0.0, pixelHeight: -0.01,
+  ));
+  final srs = gdal.spatialReferenceFromEpsg(4326);
+  writer.setProjection(srs.toWkt());
+  srs.close();
+  writer.writeAsUint8(1, Uint8List(256 * 256));
+  writer.close(); // Pflicht — schreibt Daten auf Disk
+}
+```
+
+Ein vollständiges Beispiel liegt in [`example/gdal_dart_example.dart`](example/gdal_dart_example.dart).
+
+## API-Übersicht
+
+| Klasse | Zweck |
+|---|---|
+| `Gdal` | Einstiegspunkt — GDAL initialisieren, Dateien öffnen/erzeugen, CRS erstellen |
+| `GeoTiffDataset` | Lesezugriff — Dimensionen, Projektion, GeoTransform, Bänder |
+| `GeoTiffWriter` | Schreibzugriff — neues GeoTIFF erzeugen, Bänder befüllen |
+| `RasterBand` | Pixeldaten lesen — typisiert (`readAsUint8`, `readAsFloat32`, …), Tile-Zugriff, Overviews |
+| `SpatialReference` | CRS-Objekt — WKT1/WKT2-Export, EPSG-Code, `isSame()`-Vergleich |
+| `GeoTransform` | Affine Transformation (6 Koeffizienten) |
+| `RasterDataType` | GDAL-Datentyp-Enum (`byte_`, `uint16`, `float32`, …) |
+| `RasterWindow` | Rechteckiger Raster-Ausschnitt |
+
+### Exceptions
+
+| Typ | Wann |
+|---|---|
+| `GdalException` | Basis für alle GDAL-Fehler |
+| `GdalLibraryLoadException` | Shared Library nicht gefunden |
+| `GdalFileException` | Datei kann nicht geöffnet/erzeugt werden (mit `.path`) |
+| `GdalIOException` | Lese-/Schreiboperation fehlgeschlagen |
+| `GdalDatasetClosedException` | Zugriff auf geschlossene Ressource |
+
+### Ressourcen-Lebensdauer
+
+`GeoTiffDataset`, `GeoTiffWriter` und `SpatialReference` besitzen native Handles.
+Jede Instanz **muss** mit `close()` freigegeben werden.
+`close()` ist idempotent.
+Bei `GeoTiffWriter` ist `close()` Pflicht, da erst dort Daten auf Disk geflusht werden.
 
 ## Entwicklung
 
-Für reproduzierbare Checks gibt es ein Multi-Stage-[`Dockerfile`](Dockerfile).
-Die vorgesehenen Stages sind:
-
-- `analyze`
-- `test`
-- `coverage`
-- `coverage-check`
-- `doc`
-- `bindings`
-- `publish-check`
-
-Die Stages sind bewusst getrennt:
-
-- `analyze`, `doc` und `publish-check` laufen ohne GDAL- oder Clang-Systempakete
-- `test` nutzt eine GDAL-Runtime-Basis
-- `coverage` erzeugt einen `lcov`-Report
-- `coverage-check` prüft einen Mindestwert über `COVERAGE_MIN`
-- `bindings` nutzt die erweiterte Basis mit `clang` und `libclang` für `ffigen`
-
-Die Docker-Stages sind erst nutzbar, sobald das Dart-Paket-Scaffold vorhanden ist.
-
-Beispiele ab diesem Zeitpunkt:
+Für reproduzierbare Checks gibt es ein [`Dockerfile`](Dockerfile) mit folgenden Stages:
 
 ```bash
 docker build --target analyze .
@@ -62,10 +99,12 @@ docker build --target publish-check .
 
 ## CI/CD
 
-GitHub Actions sind für folgende Aufgaben vorgesehen:
+GitHub Actions decken ab:
 
-- Continuous Integration für Analyse, Test, Coverage-Threshold und Dokumentation
-- Publish-Workflow für `pub.dev`
+- **CI** (`ci.yml`): Analyse, Test, Docker-Build
+- **Publish** (`publish.yml`): Release über Tags im Format `gdal_dart-v*.*.*` auf `pub.dev`
 
-Der Publish-Workflow läuft über Release-Tags im Format `gdal_dart-v*.*.*`.
-Vor dem Publish prüft er Tag-Namensschema, `pubspec.yaml`-Version, `CHANGELOG.md` und ob der Tag-Commit auf `main` oder `master` liegt.
+## Weiterführend
+
+- [Architektur](docs/architecture.md) — Schichtenmodell, Designentscheidungen
+- [Roadmap](docs/roadmap.md) — Phasen und Meilensteine
