@@ -1,4 +1,6 @@
 import 'geotiff_dataset.dart';
+import 'geotiff_writer.dart';
+import 'model/raster_data_type.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_library.dart';
 
@@ -43,5 +45,31 @@ class Gdal {
   /// The returned [GeoTiffDataset] must be closed after use.
   GeoTiffDataset openGeoTiff(String path) {
     return GeoTiffDataset.open(_api, path);
+  }
+
+  /// Creates a new GeoTIFF file for writing.
+  ///
+  /// The [options] map supports GTiff creation options such as
+  /// `{'TILED': 'YES', 'COMPRESS': 'LZW'}`.
+  ///
+  /// The returned [GeoTiffWriter] must be closed after use to flush
+  /// data to disk.
+  GeoTiffWriter createGeoTiff(
+    String path, {
+    required int width,
+    required int height,
+    int bandCount = 1,
+    RasterDataType dataType = RasterDataType.byte_,
+    Map<String, String> options = const {},
+  }) {
+    return GeoTiffWriter.create(
+      _api,
+      path,
+      width: width,
+      height: height,
+      bandCount: bandCount,
+      dataType: dataType,
+      options: options,
+    );
   }
 }

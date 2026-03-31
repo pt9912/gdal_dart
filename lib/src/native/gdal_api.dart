@@ -118,6 +118,46 @@ typedef _GetOverviewC = Pointer<Void> Function(
 typedef _GetOverviewDart = Pointer<Void> Function(
     Pointer<Void> band, int index);
 
+// --- Phase 5: Dataset creation & writing ---
+
+typedef _GetDriverByNameC = Pointer<Void> Function(Pointer<Utf8> name);
+typedef _GetDriverByNameDart = Pointer<Void> Function(Pointer<Utf8> name);
+
+typedef _CreateC = Pointer<Void> Function(
+    Pointer<Void> driver,
+    Pointer<Utf8> filename,
+    Int32 xSize,
+    Int32 ySize,
+    Int32 bands,
+    Int32 eType,
+    Pointer<Pointer<Utf8>> options);
+typedef _CreateDart = Pointer<Void> Function(
+    Pointer<Void> driver,
+    Pointer<Utf8> filename,
+    int xSize,
+    int ySize,
+    int bands,
+    int eType,
+    Pointer<Pointer<Utf8>> options);
+
+typedef _SetGeoTransformC = Int32 Function(
+    Pointer<Void> ds, Pointer<Double> transform);
+typedef _SetGeoTransformDart = int Function(
+    Pointer<Void> ds, Pointer<Double> transform);
+
+typedef _SetProjectionC = Int32 Function(
+    Pointer<Void> ds, Pointer<Utf8> wkt);
+typedef _SetProjectionDart = int Function(
+    Pointer<Void> ds, Pointer<Utf8> wkt);
+
+typedef _SetRasterNoDataValueC = Int32 Function(
+    Pointer<Void> band, Double value);
+typedef _SetRasterNoDataValueDart = int Function(
+    Pointer<Void> band, double value);
+
+typedef _FlushCacheC = Void Function(Pointer<Void> ds);
+typedef _FlushCacheDart = void Function(Pointer<Void> ds);
+
 /// Low-level access to GDAL C API functions.
 ///
 /// Uses manual [DynamicLibrary.lookupFunction] calls. The generated
@@ -143,6 +183,14 @@ class GdalApi {
   late final _GetRasterNoDataValueDart _getRasterNoDataValue;
   late final _GetBlockSizeDart _getBlockSize;
   late final _RasterIODart _rasterIO;
+
+  // Phase 5
+  late final _GetDriverByNameDart _getDriverByName;
+  late final _CreateDart _create;
+  late final _SetGeoTransformDart _setGeoTransform;
+  late final _SetProjectionDart _setProjection;
+  late final _SetRasterNoDataValueDart _setRasterNoDataValue;
+  late final _FlushCacheDart _flushCache;
 
   // Phase 3b
   late final _GetRasterBandXSizeDart _getRasterBandXSize;
@@ -209,6 +257,22 @@ class GdalApi {
             'GDALGetOverviewCount');
     _getOverview =
         lib.lookupFunction<_GetOverviewC, _GetOverviewDart>('GDALGetOverview');
+
+    // Phase 5
+    _getDriverByName =
+        lib.lookupFunction<_GetDriverByNameC, _GetDriverByNameDart>(
+            'GDALGetDriverByName');
+    _create = lib.lookupFunction<_CreateC, _CreateDart>('GDALCreate');
+    _setGeoTransform =
+        lib.lookupFunction<_SetGeoTransformC, _SetGeoTransformDart>(
+            'GDALSetGeoTransform');
+    _setProjection =
+        lib.lookupFunction<_SetProjectionC, _SetProjectionDart>(
+            'GDALSetProjection');
+    _setRasterNoDataValue = lib.lookupFunction<_SetRasterNoDataValueC,
+        _SetRasterNoDataValueDart>('GDALSetRasterNoDataValue');
+    _flushCache =
+        lib.lookupFunction<_FlushCacheC, _FlushCacheDart>('GDALFlushCache');
   }
 
   // --- Phase 1 ---
@@ -320,4 +384,42 @@ class GdalApi {
   Pointer<Void> getOverview(Pointer<Void> band, int index) {
     return _getOverview(band, index);
   }
+
+  // --- Phase 5 ---
+
+  /// Returns a driver handle by name (e.g., `"GTiff"`). Nullptr if not found.
+  Pointer<Void> getDriverByName(Pointer<Utf8> name) {
+    return _getDriverByName(name);
+  }
+
+  /// Creates a new dataset. Returns a dataset handle or nullptr.
+  Pointer<Void> create(
+    Pointer<Void> driver,
+    Pointer<Utf8> filename,
+    int xSize,
+    int ySize,
+    int bands,
+    int eType,
+    Pointer<Pointer<Utf8>> options,
+  ) {
+    return _create(driver, filename, xSize, ySize, bands, eType, options);
+  }
+
+  /// Sets the affine GeoTransform. Returns CPLErr (0 = CE_None).
+  int setGeoTransform(Pointer<Void> ds, Pointer<Double> transform) {
+    return _setGeoTransform(ds, transform);
+  }
+
+  /// Sets the projection WKT. Returns CPLErr (0 = CE_None).
+  int setProjection(Pointer<Void> ds, Pointer<Utf8> wkt) {
+    return _setProjection(ds, wkt);
+  }
+
+  /// Sets the NoData value on a band. Returns CPLErr (0 = CE_None).
+  int setRasterNoDataValue(Pointer<Void> band, double value) {
+    return _setRasterNoDataValue(band, value);
+  }
+
+  /// Flushes pending writes to disk.
+  void flushCache(Pointer<Void> ds) => _flushCache(ds);
 }
