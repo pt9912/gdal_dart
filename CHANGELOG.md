@@ -36,7 +36,8 @@ Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 - GitHub Actions für CI und pub.dev-Publish
 - Testfixtures: `tiny.tif`, `tiled.tif`, `multiband_uint16.tif`,
   `float32.tif`, `not_a_tiff.bin`
-- Beispiel: `example/gdal_dart_example.dart`
+- Beispiele: `example/gdal_dart_example.dart`,
+  `example/tile_processing_example.dart`
 - Tile-Processing-Modul (`lib/src/processing/`):
   - `GeoTIFFTileProcessor` für RGBA-Tile-Rendering und Elevation-Daten
   - Adaptive Triangulation mit BVH-Index (portiert aus v-map TypeScript)

@@ -51,7 +51,10 @@ void main() {
 }
 ```
 
-Ein vollständiges Beispiel liegt in [`example/gdal_dart_example.dart`](example/gdal_dart_example.dart).
+Weitere Beispiele:
+
+- [`example/gdal_dart_example.dart`](example/gdal_dart_example.dart) — Lesen, Schreiben, CRS
+- [`example/tile_processing_example.dart`](example/tile_processing_example.dart) — Tile-Rendering mit Reprojektion, Colormaps, Elevation
 
 ## API-Übersicht
 
