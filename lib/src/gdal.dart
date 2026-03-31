@@ -48,13 +48,22 @@ class Gdal {
   /// The number of registered GDAL drivers.
   int get driverCount => _api.getDriverCount();
 
-  /// Opens a GeoTIFF file for reading.
+  /// Opens any GDAL-supported raster file for reading.
   ///
-  /// Throws [GdalException] if the file cannot be opened.
+  /// Works with GeoTIFF, JPEG, PNG, NetCDF, and all other formats
+  /// supported by the installed GDAL drivers.
+  ///
+  /// Throws [GdalFileException] if the file cannot be opened.
   /// The returned [GeoTiffDataset] must be closed after use.
-  GeoTiffDataset openGeoTiff(String path) {
+  GeoTiffDataset open(String path) {
     return GeoTiffDataset.open(_api, _srs, path);
   }
+
+  /// Opens a GeoTIFF file for reading.
+  ///
+  /// Equivalent to [open] — provided for clarity when the caller
+  /// knows the file is a GeoTIFF.
+  GeoTiffDataset openGeoTiff(String path) => open(path);
 
   /// Creates a new GeoTIFF file for writing.
   ///

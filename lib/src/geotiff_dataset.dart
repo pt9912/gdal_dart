@@ -1,11 +1,14 @@
 import 'dart:ffi';
+import 'dart:typed_data';
 
 import 'package:ffi/ffi.dart';
 
 import 'model/geo_transform.dart';
+import 'model/raster_window.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_constants.dart';
 import 'native/gdal_errors.dart';
+import 'native/gdal_memory.dart';
 import 'native/gdal_srs.dart';
 import 'raster_band.dart';
 import 'spatial_reference.dart';
@@ -121,6 +124,58 @@ class GeoTiffDataset {
     }
   }
 
+  /// Returns the dataset metadata as key-value pairs.
+  ///
+  /// The optional [domain] selects a metadata domain (e.g., `"IMAGE_STRUCTURE"`).
+  /// Pass `null` or omit for the default domain.
+  Map<String, String> metadata({String? domain}) {
+    _ensureOpen();
+    final domainPtr =
+        domain != null ? domain.toNativeUtf8(allocator: calloc) : nullptr;
+    try {
+      final list = _api.getMetadata(_handle, domainPtr.cast<Utf8>());
+      return _parseStringList(list);
+    } finally {
+      if (domain != null) calloc.free(domainPtr);
+    }
+  }
+
+  /// Returns a single metadata item, or `null` if not found.
+  ///
+  /// The optional [domain] selects a metadata domain.
+  String? metadataItem(String key, {String? domain}) {
+    _ensureOpen();
+    final keyPtr = key.toNativeUtf8(allocator: calloc);
+    final domainPtr =
+        domain != null ? domain.toNativeUtf8(allocator: calloc) : nullptr;
+    try {
+      final result =
+          _api.getMetadataItem(_handle, keyPtr, domainPtr.cast<Utf8>());
+      if (result == nullptr) return null;
+      return readNativeString(result);
+    } finally {
+      calloc.free(keyPtr);
+      if (domain != null) calloc.free(domainPtr);
+    }
+  }
+
+  /// Reads all bands as [Uint8List].
+  ///
+  /// Returns a list of length [bandCount], where index 0 corresponds to
+  /// band 1. An optional [window] reads a sub-region.
+  List<Uint8List> readAllBandsAsUint8({RasterWindow? window}) {
+    _ensureOpen();
+    return List.generate(
+        bandCount, (i) => band(i + 1).readAsUint8(window: window));
+  }
+
+  /// Reads all bands as [Float32List].
+  List<Float32List> readAllBandsAsFloat32({RasterWindow? window}) {
+    _ensureOpen();
+    return List.generate(
+        bandCount, (i) => band(i + 1).readAsFloat32(window: window));
+  }
+
   /// Returns the [RasterBand] at the given 1-based [index].
   ///
   /// Band indices start at 1. Throws [GdalException] if the index is
@@ -147,5 +202,18 @@ class GeoTiffDataset {
     if (_closed) {
       throw GdalDatasetClosedException('Dataset is already closed');
     }
+  }
+
+  Map<String, String> _parseStringList(Pointer<Pointer<Utf8>> list) {
+    final result = <String, String>{};
+    if (list == nullptr) return result;
+    for (var i = 0; list[i] != nullptr; i++) {
+      final entry = list[i].toDartString();
+      final eq = entry.indexOf('=');
+      if (eq > 0) {
+        result[entry.substring(0, eq)] = entry.substring(eq + 1);
+      }
+    }
+    return result;
   }
 }

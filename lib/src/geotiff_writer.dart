@@ -222,6 +222,18 @@ class GeoTiffWriter {
         RasterDataType.float64);
   }
 
+  /// Writes [Uint32List] data to band [bandIndex] (1-based).
+  void writeAsUint32(int bandIndex, Uint32List data, {RasterWindow? window}) {
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.uint32);
+  }
+
+  /// Writes [Int32List] data to band [bandIndex] (1-based).
+  void writeAsInt32(int bandIndex, Int32List data, {RasterWindow? window}) {
+    _writeRaw(bandIndex, window ?? _fullWindow(), data.buffer.asUint8List(),
+        RasterDataType.int32_);
+  }
+
   /// Closes the writer, flushes data, and releases the native handle.
   ///
   /// **Must be called** to ensure data is written to disk.

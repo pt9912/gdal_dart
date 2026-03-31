@@ -4,6 +4,8 @@ library;
 export 'src/gdal.dart' show Gdal;
 export 'src/geotiff_dataset.dart' show GeoTiffDataset;
 export 'src/geotiff_writer.dart' show GeoTiffWriter;
+export 'src/model/band_statistics.dart' show BandStatistics;
+export 'src/model/color_interpretation.dart' show ColorInterpretation;
 export 'src/model/geo_transform.dart' show GeoTransform;
 export 'src/model/raster_data_type.dart' show RasterDataType;
 export 'src/model/raster_window.dart' show RasterWindow;

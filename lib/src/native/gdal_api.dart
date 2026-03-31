@@ -158,6 +158,40 @@ typedef _SetRasterNoDataValueDart = int Function(
 typedef _FlushCacheC = Void Function(Pointer<Void> ds);
 typedef _FlushCacheDart = void Function(Pointer<Void> ds);
 
+// --- Phase 7: Metadata, statistics, color interpretation ---
+
+typedef _GetMetadataC = Pointer<Pointer<Utf8>> Function(
+    Pointer<Void> obj, Pointer<Utf8> domain);
+typedef _GetMetadataDart = Pointer<Pointer<Utf8>> Function(
+    Pointer<Void> obj, Pointer<Utf8> domain);
+
+typedef _GetMetadataItemC = Pointer<Utf8> Function(
+    Pointer<Void> obj, Pointer<Utf8> name, Pointer<Utf8> domain);
+typedef _GetMetadataItemDart = Pointer<Utf8> Function(
+    Pointer<Void> obj, Pointer<Utf8> name, Pointer<Utf8> domain);
+
+typedef _ComputeRasterStatisticsC = Int32 Function(
+    Pointer<Void> band,
+    Int32 approxOK,
+    Pointer<Double> min,
+    Pointer<Double> max,
+    Pointer<Double> mean,
+    Pointer<Double> stdDev,
+    Pointer<Void> progress,
+    Pointer<Void> progressData);
+typedef _ComputeRasterStatisticsDart = int Function(
+    Pointer<Void> band,
+    int approxOK,
+    Pointer<Double> min,
+    Pointer<Double> max,
+    Pointer<Double> mean,
+    Pointer<Double> stdDev,
+    Pointer<Void> progress,
+    Pointer<Void> progressData);
+
+typedef _GetRasterColorInterpretationC = Int32 Function(Pointer<Void> band);
+typedef _GetRasterColorInterpretationDart = int Function(Pointer<Void> band);
+
 /// Low-level access to GDAL C API functions.
 ///
 /// Uses manual [DynamicLibrary.lookupFunction] calls. The generated
@@ -183,6 +217,12 @@ class GdalApi {
   late final _GetRasterNoDataValueDart _getRasterNoDataValue;
   late final _GetBlockSizeDart _getBlockSize;
   late final _RasterIODart _rasterIO;
+
+  // Phase 7
+  late final _GetMetadataDart _getMetadata;
+  late final _GetMetadataItemDart _getMetadataItem;
+  late final _ComputeRasterStatisticsDart _computeRasterStatistics;
+  late final _GetRasterColorInterpretationDart _getColorInterpretation;
 
   // Phase 5
   late final _GetDriverByNameDart _getDriverByName;
@@ -273,6 +313,19 @@ class GdalApi {
         _SetRasterNoDataValueDart>('GDALSetRasterNoDataValue');
     _flushCache =
         lib.lookupFunction<_FlushCacheC, _FlushCacheDart>('GDALFlushCache');
+
+    // Phase 7
+    _getMetadata =
+        lib.lookupFunction<_GetMetadataC, _GetMetadataDart>('GDALGetMetadata');
+    _getMetadataItem =
+        lib.lookupFunction<_GetMetadataItemC, _GetMetadataItemDart>(
+            'GDALGetMetadataItem');
+    _computeRasterStatistics = lib.lookupFunction<
+        _ComputeRasterStatisticsC,
+        _ComputeRasterStatisticsDart>('GDALComputeRasterStatistics');
+    _getColorInterpretation = lib.lookupFunction<
+        _GetRasterColorInterpretationC,
+        _GetRasterColorInterpretationDart>('GDALGetRasterColorInterpretation');
   }
 
   // --- Phase 1 ---
@@ -422,4 +475,34 @@ class GdalApi {
 
   /// Flushes pending writes to disk.
   void flushCache(Pointer<Void> ds) => _flushCache(ds);
+
+  // --- Phase 7 ---
+
+  /// Returns metadata as a null-terminated string list. Owned by GDAL.
+  Pointer<Pointer<Utf8>> getMetadata(Pointer<Void> obj, Pointer<Utf8> domain) {
+    return _getMetadata(obj, domain);
+  }
+
+  /// Returns a single metadata item. Owned by GDAL. Nullptr if missing.
+  Pointer<Utf8> getMetadataItem(
+      Pointer<Void> obj, Pointer<Utf8> name, Pointer<Utf8> domain) {
+    return _getMetadataItem(obj, name, domain);
+  }
+
+  /// Computes band statistics. Returns CPLErr (0 = CE_None).
+  int computeRasterStatistics(
+    Pointer<Void> band,
+    int approxOK,
+    Pointer<Double> min,
+    Pointer<Double> max,
+    Pointer<Double> mean,
+    Pointer<Double> stdDev,
+  ) {
+    return _computeRasterStatistics(
+        band, approxOK, min, max, mean, stdDev, nullptr, nullptr);
+  }
+
+  /// Returns the GDALColorInterp enum value for a band.
+  int getColorInterpretation(Pointer<Void> band) =>
+      _getColorInterpretation(band);
 }

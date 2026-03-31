@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:ffi/ffi.dart';
 
 import 'geotiff_dataset.dart';
+import 'model/band_statistics.dart';
+import 'model/color_interpretation.dart';
 import 'model/raster_data_type.dart';
 import 'model/raster_window.dart';
 import 'native/gdal_api.dart';
@@ -169,6 +171,90 @@ class RasterBand {
     }
   }
 
+  /// Reads the band (or a [window]) as [Uint32List].
+  Uint32List readAsUint32({RasterWindow? window}) {
+    final w = window ?? _fullWindow();
+    final count = w.width * w.height;
+    final buf = _readRaw(w, RasterDataType.uint32);
+    try {
+      return Uint32List.fromList(buf.cast<Uint32>().asTypedList(count));
+    } finally {
+      calloc.free(buf);
+    }
+  }
+
+  /// Reads the band (or a [window]) as [Int32List].
+  Int32List readAsInt32({RasterWindow? window}) {
+    final w = window ?? _fullWindow();
+    final count = w.width * w.height;
+    final buf = _readRaw(w, RasterDataType.int32_);
+    try {
+      return Int32List.fromList(buf.cast<Int32>().asTypedList(count));
+    } finally {
+      calloc.free(buf);
+    }
+  }
+
+  // --- Resampled reads ---
+
+  /// Reads the band (or a [window]) resampled to [outWidth] x [outHeight].
+  ///
+  /// GDAL performs the resampling internally via `GDALRasterIO` when the
+  /// output buffer size differs from the source window size.
+  Uint8List readResampledAsUint8(int outWidth, int outHeight,
+      {RasterWindow? window}) {
+    return _readResampled(
+        window ?? _fullWindow(), outWidth, outHeight, RasterDataType.byte_,
+        (buf, count) => Uint8List.fromList(buf.cast<Uint8>().asTypedList(count)));
+  }
+
+  /// Reads the band (or a [window]) resampled to [outWidth] x [outHeight]
+  /// as [Float32List].
+  Float32List readResampledAsFloat32(int outWidth, int outHeight,
+      {RasterWindow? window}) {
+    return _readResampled(
+        window ?? _fullWindow(), outWidth, outHeight, RasterDataType.float32,
+        (buf, count) =>
+            Float32List.fromList(buf.cast<Float>().asTypedList(count)));
+  }
+
+  // --- Statistics ---
+
+  /// Computes exact band statistics.
+  ///
+  /// Set [approximate] to `true` for faster approximate results.
+  BandStatistics computeStatistics({bool approximate = false}) {
+    _ensureDatasetOpen();
+    final pMin = calloc<Double>();
+    final pMax = calloc<Double>();
+    final pMean = calloc<Double>();
+    final pStdDev = calloc<Double>();
+    try {
+      final err = _api.computeRasterStatistics(
+          _handle, approximate ? 1 : 0, pMin, pMax, pMean, pStdDev);
+      if (err != 0) {
+        throw GdalException('Failed to compute statistics (CPLErr: $err)');
+      }
+      return BandStatistics(
+        min: pMin.value,
+        max: pMax.value,
+        mean: pMean.value,
+        stdDev: pStdDev.value,
+      );
+    } finally {
+      calloc.free(pMin);
+      calloc.free(pMax);
+      calloc.free(pMean);
+      calloc.free(pStdDev);
+    }
+  }
+
+  /// The color interpretation of this band (e.g., gray, red, green, blue).
+  ColorInterpretation get colorInterpretation {
+    _ensureDatasetOpen();
+    return ColorInterpretation.fromGdal(_api.getColorInterpretation(_handle));
+  }
+
   // --- Tile / block access ---
 
   /// Number of tiles in the horizontal direction.
@@ -273,6 +359,36 @@ class RasterBand {
       throw GdalIOException('GDALRasterIO read failed (CPLErr: $err)');
     }
     return buf.cast<Void>();
+  }
+
+  T _readResampled<T>(RasterWindow w, int outWidth, int outHeight,
+      RasterDataType type, T Function(Pointer<Void> buf, int count) convert) {
+    _ensureDatasetOpen();
+    final count = outWidth * outHeight;
+    final buf = calloc<Uint8>(count * type.sizeInBytes);
+    final err = _api.rasterIO(
+      _handle,
+      gfRead,
+      w.xOffset,
+      w.yOffset,
+      w.width,
+      w.height,
+      buf.cast<Void>(),
+      outWidth,
+      outHeight,
+      type.gdalValue,
+      0,
+      0,
+    );
+    if (err != 0) {
+      calloc.free(buf);
+      throw GdalIOException('GDALRasterIO resampled read failed (CPLErr: $err)');
+    }
+    try {
+      return convert(buf.cast<Void>(), count);
+    } finally {
+      calloc.free(buf);
+    }
   }
 
   RasterWindow _fullWindow() => RasterWindow(
