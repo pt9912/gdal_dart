@@ -94,7 +94,7 @@ jobs:
 
       - name: Build coverage-check stage
         if: steps.files.outputs.can_build == 'true'
-        run: docker build --target coverage-check --build-arg COVERAGE_MIN=80 .
+        run: docker build --target coverage-check --build-arg COVERAGE_MIN=95 .
 
       - name: Docker placeholder
         if: steps.files.outputs.can_build != 'true'
