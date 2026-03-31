@@ -53,8 +53,8 @@ Beispiele ab diesem Zeitpunkt:
 ```bash
 docker build --target analyze .
 docker build --target test .
-docker build --target coverage .
-docker build --target coverage-check --build-arg COVERAGE_MIN=80 .
+docker build --target coverage --no-cache-filter coverage --progress=plain .
+docker build --target coverage-check --no-cache-filter coverage --progress=plain --build-arg COVERAGE_MIN=95 .
 docker build --target doc .
 docker build --target bindings .
 docker build --target publish-check .

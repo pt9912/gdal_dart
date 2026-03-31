@@ -1,5 +1,15 @@
 FROM dart:stable AS base
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+    gdal-bin \
+    libgdal-dev \
+    clang \
+    libclang-dev \
+    pkg-config \
+    lcov \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 # Copy only pubspec first for dependency caching.
@@ -11,20 +21,9 @@ COPY . .
 
 # Runtime image for tests that need GDAL shared libraries.
 FROM base AS native-test-base
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        gdal-bin \
-        libgdal-dev \
-    && rm -rf /var/lib/apt/lists/*
 
 # Extended image for binding generation via ffigen/libclang.
 FROM native-test-base AS bindings-base
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        clang \
-        libclang-dev \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
 
 # Analyze.
 FROM base AS analyze
@@ -46,21 +45,23 @@ RUN dart pub global run coverage:format_coverage \
     --lcov \
     --in=coverage \
     --out=coverage/lcov.info
+RUN lcov --summary coverage/lcov.info    
 
 # Coverage threshold check.
 FROM coverage AS coverage-check
-ARG COVERAGE_MIN=80
+ARG COVERAGE_MIN=95
 RUN awk -F'[,:]' -v min="$COVERAGE_MIN" '\
     /^DA:/ { total += 1; if ($3 > 0) hit += 1 } \
     END { \
-      if (total == 0) { \
-        print "No coverage data found in coverage/lcov.info"; \
-        exit 1; \
-      } \
-      pct = (hit / total) * 100; \
-      printf "Line coverage: %.2f%% (threshold %.2f%%)\n", pct, min; \
-      if (pct < min) { exit 2 } \
+    if (total == 0) { \
+    print "No coverage data found in coverage/lcov.info"; \
+    exit 1; \
+    } \
+    pct = (hit / total) * 100; \
+    printf "Line coverage: %.2f%% (threshold %.2f%%)\n", pct, min; \
+    if (pct < min) { exit 2 } \
     }' coverage/lcov.info
+
 
 # Doc.
 FROM base AS doc
