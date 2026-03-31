@@ -42,7 +42,7 @@ ENV PATH="/root/.pub-cache/bin:${PATH}"
 RUN dart test --coverage=coverage
 RUN dart pub global run coverage:format_coverage \
     --packages=.dart_tool/package_config.json \
-    --report_on=lib \
+    --report-on=lib \
     --lcov \
     --in=coverage \
     --out=coverage/lcov.info
