@@ -125,15 +125,34 @@ lib/
       raster_window.dart
     gdal.dart
     geotiff_dataset.dart
+    geotiff_writer.dart
     raster_band.dart
+    spatial_reference.dart
+    processing/
+      triangle.dart
+      aabb2d.dart
+      bvh_node2d.dart
+      triangulation.dart
+      sampling_utils.dart
+      normalization_utils.dart
+      colormap_utils.dart
+      geotiff_tile_processor.dart
 
 tool/
   generate_bindings.dart
 
 test/
-  geotiff_open_test.dart
-  geotiff_metadata_test.dart
-  geotiff_read_test.dart
+  unit/
+    processing/
+      triangle_test.dart
+      aabb2d_test.dart
+      bvh_node2d_test.dart
+      triangulation_test.dart
+      sampling_utils_test.dart
+      normalization_utils_test.dart
+      colormap_utils_test.dart
+  integration/
+    tile_processor_test.dart
 ```
 
 ## Verantwortung der Schichten
@@ -162,6 +181,16 @@ test/
 - Kapselt `Pointer` und `ffi` vollständig
 - Liefert saubere fachliche Methoden
 - Macht Ressourcenlebensdauer explizit, zum Beispiel mit `close()`
+
+### `processing/`
+
+- Pure-Dart-Logik ohne direkte FFI-Abhängigkeit
+- Triangulationsbasierte Raster-Reprojektion (portiert aus v-map TypeScript)
+- BVH-Index für schnelle Point-in-Triangle-Lookups
+- Sampling-Utilities: Nearest-Neighbor und bilineare Interpolation
+- Normalisierung von TypedArray-Werten auf 0–255 bzw. 0–1
+- Vordefinierte Colormaps (viridis, terrain, turbo, rainbow, grayscale)
+- `GeoTIFFTileProcessor` als Orchestrierungsschicht für Tile-Rendering mit Reprojektion
 
 ## Geplanter API-Schnitt
 
@@ -533,6 +562,48 @@ Wichtige Regel:
 - Tests müssen klein und deterministisch sein
 - Fixture-Dateien sollten möglichst kompakt bleiben
 
+## Tile-Processing und Reprojektion
+
+### Hintergrund
+
+Für die Darstellung von GeoTIFF-Daten in Web-Mapping-Kontexten (deck.gl, Leaflet, Cesium) müssen Rasterdaten häufig von der Quellprojektion nach Web Mercator reprojiziert und kachelweise bereitgestellt werden.
+
+### Ansatz: Triangulationsbasierte Reprojektion
+
+Statt jeden Pixel einzeln zu projizieren (ca. 65.000 Projektionsaufrufe pro Tile), wird das Zielgebiet adaptiv in Dreiecke unterteilt. Nur die Dreieck-Eckpunkte werden transformiert, und für alle Pixel innerhalb eines Dreiecks wird eine affine Transformation verwendet. Das reduziert die Projektionsaufrufe auf ca. 50–200 pro Tile.
+
+Dieser Ansatz basiert auf dem OpenLayers-Triangulationsverfahren und wurde aus dem v-map TypeScript-Projekt portiert.
+
+### Architektur des Processing-Moduls
+
+Das Modul liegt in `lib/src/processing/` und hat keine direkte FFI-Abhängigkeit. Es verwendet die öffentliche `gdal_dart`-API für Raster-Zugriffe.
+
+```text
+processing/
+  triangle.dart            → Triangle-Datenstrukturen (Source/Target-Mapping)
+  aabb2d.dart              → Axis-Aligned Bounding Box, Point2D, AffineTransform
+  bvh_node2d.dart          → Bounding Volume Hierarchy für O(log n) Punkt-Lookups
+  triangulation.dart       → Adaptive Triangulation mit Fehlersteuerung
+  sampling_utils.dart      → Nearest-Neighbor und bilineare Interpolation
+  normalization_utils.dart → Wert-Normalisierung für verschiedene Datentypen
+  colormap_utils.dart      → Farbmapping mit vordefinierten Colormaps
+  geotiff_tile_processor.dart → Orchestrierung: Tile-Bounds, Overview-Auswahl,
+                               Raster-Lesen, Pixel-Rendering, Elevation-Daten
+```
+
+### Ablauf der Tile-Erzeugung
+
+1. Tile-Bounds in der Zielprojektion berechnen
+2. Prüfen, ob das Tile mit den Quell-Bounds überlappt (Early Exit)
+3. Quell-Bounds für das Tile per Koordinatentransformation bestimmen
+4. Passendes Overview-Level wählen
+5. Pixel-Fenster berechnen und Rasterdaten lesen
+6. Pixel per Triangulation reprojizieren und mit Sampling/Colormap rendern
+
+### Elevation-Daten
+
+Der Tile-Processor kann neben RGBA-Tiles auch Höhendaten als `Float32List` liefern, die für die Terrain-Mesh-Erzeugung (z.B. Martini) geeignet sind. Die Ausgabe hat die Größe `(tileSize+1)²` mit backfilled Rändern für Martini-Kompatibilität.
+
 ## Erweiterungspfad
 
 Nach einer stabilen ersten Version ist diese Reihenfolge sinnvoll:
@@ -544,7 +615,8 @@ Nach einer stabilen ersten Version ist diese Reihenfolge sinnvoll:
 5. COG-Unterstützung: Fernzugriff via `/vsicurl/` und Overview-Zugriff
 6. Schreiben neuer GeoTIFF-Dateien
 7. Mehr GDAL-Treiber
-8. Warping, Resampling und fortgeschrittene Rasteroperationen
+8. Triangulationsbasierte Tile-Reprojektion und Rendering
+9. Warping, Resampling und fortgeschrittene Rasteroperationen
 
 ## Entscheidungen
 

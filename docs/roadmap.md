@@ -197,6 +197,28 @@ Ergebnis:
 
 - Das Paket deckt mehr praktische GDAL-Raster-Workflows ab
 
+## Phase 7b: Tile-Processing und Reprojektion
+
+Ziel:
+Triangulationsbasierte Tile-Erzeugung mit Reprojektion für Web-Mapping-Use-Cases bereitstellen.
+
+Umfang:
+
+- Adaptive Triangulation für effiziente Raster-Reprojektion (portiert aus v-map)
+- BVH-Index für schnelle Point-in-Triangle-Queries
+- Nearest-Neighbor- und bilineare Interpolation
+- Wert-Normalisierung für verschiedene Datentypen (Uint8–Float64)
+- Vordefinierte Colormaps (viridis, terrain, turbo, rainbow, grayscale)
+- `GeoTIFFTileProcessor` für RGBA-Tile-Rendering und Elevation-Daten
+- Overview-Auswahl nach Zoom-Level
+- Martini-kompatible Elevation-Ausgabe
+
+Ergebnis:
+
+- GeoTIFF-Daten können kachelweise reprojiziert und für Web-Mapping aufbereitet werden
+- Elevation-Daten stehen für Terrain-Mesh-Erzeugung bereit
+- Colormaps ermöglichen flexible Visualisierung von Einband-Daten
+
 ## Phase 8: Distribution und Developer Experience
 
 Ziel:
@@ -225,6 +247,7 @@ Ergebnis:
 6. Tile-Lesen und COG-Zugriff
 7. Fixtures und Integrationstests ergänzen
 8. CRS-Zugriff über OSR-API
+9. Tile-Processing und Reprojektion
 
 ## Meilensteine
 
@@ -254,6 +277,12 @@ Ergebnis:
 - GeoTIFF erzeugen
 - Pixeldaten schreiben
 - Raumbezug setzen
+
+### M3b: Tile-Processing
+
+- Triangulationsbasierte Reprojektion
+- Tile-Rendering mit Colormaps
+- Elevation-Daten für Terrain-Meshes
 
 ### M4: Erstes öffentlich nutzbares Release
 

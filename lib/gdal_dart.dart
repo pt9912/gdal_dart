@@ -16,5 +16,17 @@ export 'src/native/gdal_errors.dart'
         GdalDatasetClosedException,
         GdalFileException,
         GdalIOException;
+export 'src/processing/aabb2d.dart' show Point2D, AffineTransform, AABB2D;
+export 'src/processing/bvh_node2d.dart' show BVHNode2D;
+export 'src/processing/colormap_utils.dart'
+    show ColorStop, ColorMapName, predefinedColormaps, applyColorMap, getColorStops, parseHexColor;
+export 'src/processing/geotiff_tile_processor.dart'
+    show GeoTIFFTileProcessor, GeoTIFFTileProcessorConfig, TileDataParams;
+export 'src/processing/normalization_utils.dart'
+    show TypedArrayType, normalizeValue, normalizeToColorMapRange, autoDetectValueRange, isFloatType, getTypeRange;
+export 'src/processing/sampling_utils.dart' show SampleBand, sampleNearest, sampleBilinear;
+export 'src/processing/triangle.dart' show ITriangle;
+export 'src/processing/triangulation.dart'
+    show Triangulation, TransformFunction, TriResult, Bounds, calculateBounds;
 export 'src/raster_band.dart' show RasterBand;
 export 'src/spatial_reference.dart' show SpatialReference;

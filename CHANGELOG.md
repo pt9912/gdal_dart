@@ -37,3 +37,10 @@ Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 - Testfixtures: `tiny.tif`, `tiled.tif`, `multiband_uint16.tif`,
   `float32.tif`, `not_a_tiff.bin`
 - Beispiel: `example/gdal_dart_example.dart`
+- Tile-Processing-Modul (`lib/src/processing/`):
+  - `GeoTIFFTileProcessor` für RGBA-Tile-Rendering und Elevation-Daten
+  - Adaptive Triangulation mit BVH-Index (portiert aus v-map TypeScript)
+  - Nearest-Neighbor- und bilineare Interpolation
+  - Normalisierung für Uint8–Float64-Datentypen
+  - Vordefinierte Colormaps: viridis, terrain, turbo, rainbow, grayscale
+  - Martini-kompatible Elevation-Ausgabe

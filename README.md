@@ -65,6 +65,9 @@ Ein vollständiges Beispiel liegt in [`example/gdal_dart_example.dart`](example/
 | `GeoTransform` | Affine Transformation (6 Koeffizienten) |
 | `RasterDataType` | GDAL-Datentyp-Enum (`byte_`, `uint16`, `float32`, …) |
 | `RasterWindow` | Rechteckiger Raster-Ausschnitt |
+| `GeoTIFFTileProcessor` | Tile-Rendering mit Triangulations-Reprojektion, Colormaps und Elevation |
+| `Triangulation` | Adaptive Triangulation für effiziente Raster-Reprojektion |
+| `ColorStop` / `ColorMapName` | Farbmapping mit vordefinierten Colormaps (viridis, terrain, turbo, …) |
 
 ### Exceptions
 
