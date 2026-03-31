@@ -233,6 +233,9 @@ Deshalb sollten primär Funktionen wie diese genutzt werden:
 - `GDALGetRasterDataType`
 - `GDALRasterIO`
 - `GDALGetRasterNoDataValue`
+- `GDALGetBlockSize`
+- `GDALGetOverviewCount`
+- `GDALGetOverview`
 
 ## Bibliothekslade-Strategie
 
@@ -337,8 +340,80 @@ Intern übersetzt die API:
 - Aufruf von `GDALRasterIO`
 - Rückgabe als `Uint8List`, `Uint16List`, `Int16List`, `Float32List` oder `Float64List`
 
+### Tile- und Block-basiertes Lesen
+
+GeoTIFF-Dateien können intern in Tiles (Kacheln) oder Strips organisiert sein.
+Die Blockgröße ist über `GDALGetBlockSize` abfragbar und bestimmt die natürliche Leseeinheit.
+
+Für effizientes Lesen großer Raster — insbesondere bei Cloud Optimized GeoTIFF (COG) — ist blockweises Lesen über `GDALRasterIO` mit passenden Fenstergrößen der bevorzugte Weg.
+Ein zusätzliches `GDALReadBlock` kann für striktes Block-Alignment sinnvoll sein, ist aber für die erste API-Stufe nicht erforderlich.
+
+Die Dart-API sollte Tile-Zugriff über das bestehende Fenster-Lesen abbilden:
+
+```dart
+final band = dataset.band(1);
+final blockSize = band.blockSize; // z.B. RasterSize(256, 256)
+final tile = band.read(window: RasterWindow(x: 256, y: 0, width: 256, height: 256));
+```
+
 Für die erste Version sollte nur Lesen unterstützt werden.
 Schreiben kann später analog über Dataset-Erzeugung und `GDALRasterIO` ergänzt werden.
+
+## Cloud Optimized GeoTIFF (COG)
+
+### Hintergrund
+
+Cloud Optimized GeoTIFF (COG) ist ein reguläres GeoTIFF mit spezifischer interner Organisation:
+
+- Interne Kachelung (Tiling) statt Strip-Layout
+- Eingebettete Overviews (Pyramiden) für Mehrskalenzugriff
+- HTTP-Range-Request-freundliche Byte-Anordnung
+
+GDAL unterstützt COG transparent — eine COG-Datei wird mit denselben Funktionen geöffnet und gelesen wie jedes andere GeoTIFF.
+Der Unterschied liegt primär im Zugriffspfad (lokal vs. remote) und in der Nutzung von Overviews und Kacheln.
+
+### Fernzugriff über GDAL Virtual Filesystem
+
+Für den Zugriff auf remote gehostete COGs stellt GDAL virtuelle Dateisysteme bereit:
+
+- `/vsicurl/` — HTTP/HTTPS-Zugriff mit Range-Requests
+- `/vsis3/` — Amazon S3
+- `/vsigs/` — Google Cloud Storage
+- `/vsiaz/` — Azure Blob Storage
+
+Aus Sicht der Dart-API ändert sich nur der Dateipfad:
+
+```dart
+final dataset = gdal.openGeoTiff('/vsicurl/https://example.com/data.tif');
+```
+
+GDAL übernimmt intern das Caching und die Range-Request-Logik.
+Die Dart-Schicht muss dafür keine eigene HTTP-Logik implementieren.
+
+### Overviews
+
+COGs enthalten typischerweise Overviews (reduzierte Auflösungsstufen).
+GDAL stellt diese über die Band-API bereit:
+
+- `GDALGetOverviewCount` — Anzahl der Overviews eines Bands
+- `GDALGetOverview` — Zugriff auf ein Overview-Band
+
+Ein Overview-Band verhält sich wie ein reguläres `RasterBand`, nur mit geringerer Auflösung.
+Die Dart-API kann Overviews als zusätzliche Methoden auf `RasterBand` bereitstellen:
+
+```dart
+final band = dataset.band(1);
+final overviewCount = band.overviewCount;
+final overview = band.overview(0); // erstes Overview-Band
+final thumbnail = overview.readAsUint8();
+```
+
+### Architektonische Konsequenzen
+
+- Die bestehende synchrone API funktioniert auch für COG-Zugriff, weil GDAL die I/O-Komplexität intern kapselt.
+- Für große Remote-Raster können synchrone Aufrufe allerdings blockieren. Falls nötig, kann Isolate-basierte Parallelität oberhalb der FFI-Schicht ergänzt werden (siehe Threading-Abschnitt).
+- Die `native/`-Schicht muss um Overview-Funktionen erweitert werden, die Public API um Overview-Zugriff auf `RasterBand`.
+- Konfiguration der virtuellen Dateisysteme (Credentials, Caching) erfolgt über GDALs eigene Konfigurationsmechanismen (`CPLSetConfigOption`), nicht über die Dart-API.
 
 ## Threading und Nebenläufigkeit
 
@@ -407,9 +482,11 @@ Nach einer stabilen ersten Version ist diese Reihenfolge sinnvoll:
 1. Robustes GeoTIFF-Lesen
 2. Fenster- und Band-Lesen mit typisierten Buffern
 3. Metadaten, NoData, Blockgrößen
-4. Schreiben neuer GeoTIFF-Dateien
-5. Mehr GDAL-Treiber
-6. Warping, Resampling und fortgeschrittene Rasteroperationen
+4. Tile-/Block-basiertes Lesen für effiziente Kachelzugriffe
+5. COG-Unterstützung: Fernzugriff via `/vsicurl/` und Overview-Zugriff
+6. Schreiben neuer GeoTIFF-Dateien
+7. Mehr GDAL-Treiber
+8. Warping, Resampling und fortgeschrittene Rasteroperationen
 
 ## Entscheidungen
 

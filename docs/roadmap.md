@@ -86,6 +86,25 @@ Ergebnis:
 
 - Praktisch nutzbarer Lesekern für Analyse- und Anzeige-Use-Cases
 
+## Phase 3b: Tile-Lesen und COG-Unterstützung
+
+Ziel:
+Kachelbasiertes Lesen und Zugriff auf Cloud Optimized GeoTIFF (COG) ermöglichen.
+
+Umfang:
+
+- Tile-/Block-basiertes Lesen über `GDALRasterIO` mit Fenstergrößen passend zur Blockgröße
+- Fernzugriff auf COGs via GDALs virtuelle Dateisysteme (`/vsicurl/`, `/vsis3/`, `/vsigs/`, `/vsiaz/`)
+- Overview-Anzahl lesen (`GDALGetOverviewCount`)
+- Overview-Band abrufen (`GDALGetOverview`)
+- Overview-Daten lesen über bestehende `RasterBand`-Leseoperationen
+
+Ergebnis:
+
+- GeoTIFFs können kachelweise statt nur als Ganzes gelesen werden
+- Remote-gehostete COGs sind über Pfad-Konvention nutzbar
+- Overviews ermöglichen effizienten Mehrskalenzugriff
+
 ## Phase 4: Test- und Fixture-Basis festigen
 
 Ziel:
@@ -179,7 +198,8 @@ Ergebnis:
 3. GDAL laden und initialisieren
 4. GeoTIFF öffnen und Metadaten lesen
 5. Rasterband-Lesen per `GDALRasterIO`
-6. Fixtures und Integrationstests ergänzen
+6. Tile-Lesen und COG-Zugriff
+7. Fixtures und Integrationstests ergänzen
 
 ## Meilensteine
 
@@ -194,6 +214,8 @@ Ergebnis:
 - GeoTIFF öffnen
 - Metadaten lesen
 - Banddaten lesen
+- Tile-/Block-Lesen und COG-Fernzugriff
+- Overview-Zugriff
 - Integrationstests vorhanden
 
 ### M3: Write support
