@@ -1,3 +1,4 @@
+import 'geotiff_dataset.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_library.dart';
 
@@ -7,8 +8,9 @@ import 'native/gdal_library.dart';
 ///
 /// ```dart
 /// final gdal = Gdal();
-/// print(gdal.versionString); // e.g. "3.8.4"
-/// print(gdal.driverCount);
+/// final dataset = gdal.openGeoTiff('example.tif');
+/// print('${dataset.width} x ${dataset.height}');
+/// dataset.close();
 /// ```
 class Gdal {
   final GdalApi _api;
@@ -34,4 +36,12 @@ class Gdal {
 
   /// The number of registered GDAL drivers.
   int get driverCount => _api.getDriverCount();
+
+  /// Opens a GeoTIFF file for reading.
+  ///
+  /// Throws [GdalException] if the file cannot be opened.
+  /// The returned [GeoTiffDataset] must be closed after use.
+  GeoTiffDataset openGeoTiff(String path) {
+    return GeoTiffDataset.open(_api, path);
+  }
 }

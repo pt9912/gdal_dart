@@ -2,5 +2,7 @@
 library;
 
 export 'src/gdal.dart' show Gdal;
+export 'src/geotiff_dataset.dart' show GeoTiffDataset;
+export 'src/model/geo_transform.dart' show GeoTransform;
 export 'src/native/gdal_errors.dart'
     show GdalException, GdalLibraryLoadException, GdalDatasetClosedException;

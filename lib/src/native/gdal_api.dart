@@ -4,7 +4,8 @@ import 'package:ffi/ffi.dart';
 
 import 'gdal_memory.dart';
 
-// Native function typedefs.
+// --- Phase 1: Init & info ---
+
 typedef _AllRegisterC = Void Function();
 typedef _AllRegisterDart = void Function();
 
@@ -14,24 +15,90 @@ typedef _VersionInfoDart = Pointer<Utf8> Function(Pointer<Utf8> request);
 typedef _GetDriverCountC = Int32 Function();
 typedef _GetDriverCountDart = int Function();
 
+// --- Phase 2: Dataset open/close & metadata ---
+
+typedef _OpenExC = Pointer<Void> Function(
+    Pointer<Utf8> filename,
+    Uint32 flags,
+    Pointer<Pointer<Utf8>> drivers,
+    Pointer<Pointer<Utf8>> options,
+    Pointer<Pointer<Utf8>> siblings);
+typedef _OpenExDart = Pointer<Void> Function(
+    Pointer<Utf8> filename,
+    int flags,
+    Pointer<Pointer<Utf8>> drivers,
+    Pointer<Pointer<Utf8>> options,
+    Pointer<Pointer<Utf8>> siblings);
+
+typedef _CloseC = Void Function(Pointer<Void> ds);
+typedef _CloseDart = void Function(Pointer<Void> ds);
+
+typedef _GetRasterXSizeC = Int32 Function(Pointer<Void> ds);
+typedef _GetRasterXSizeDart = int Function(Pointer<Void> ds);
+
+typedef _GetRasterYSizeC = Int32 Function(Pointer<Void> ds);
+typedef _GetRasterYSizeDart = int Function(Pointer<Void> ds);
+
+typedef _GetRasterCountC = Int32 Function(Pointer<Void> ds);
+typedef _GetRasterCountDart = int Function(Pointer<Void> ds);
+
+typedef _GetProjectionRefC = Pointer<Utf8> Function(Pointer<Void> ds);
+typedef _GetProjectionRefDart = Pointer<Utf8> Function(Pointer<Void> ds);
+
+typedef _GetGeoTransformC = Int32 Function(
+    Pointer<Void> ds, Pointer<Double> transform);
+typedef _GetGeoTransformDart = int Function(
+    Pointer<Void> ds, Pointer<Double> transform);
+
 /// Low-level access to GDAL C API functions.
 ///
 /// Uses manual [DynamicLibrary.lookupFunction] calls. The generated
 /// ffigen bindings in `lib/src/bindings/` are not required for this layer.
 class GdalApi {
+  // Phase 1
   late final _AllRegisterDart _allRegister;
   late final _VersionInfoDart _versionInfo;
   late final _GetDriverCountDart _getDriverCount;
 
+  // Phase 2
+  late final _OpenExDart _openEx;
+  late final _CloseDart _close;
+  late final _GetRasterXSizeDart _getRasterXSize;
+  late final _GetRasterYSizeDart _getRasterYSize;
+  late final _GetRasterCountDart _getRasterCount;
+  late final _GetProjectionRefDart _getProjectionRef;
+  late final _GetGeoTransformDart _getGeoTransform;
+
   GdalApi(DynamicLibrary lib) {
+    // Phase 1
     _allRegister = lib
         .lookupFunction<_AllRegisterC, _AllRegisterDart>('GDALAllRegister');
     _versionInfo = lib
         .lookupFunction<_VersionInfoC, _VersionInfoDart>('GDALVersionInfo');
-    _getDriverCount = lib
-        .lookupFunction<_GetDriverCountC, _GetDriverCountDart>(
-            'GDALGetDriverCount');
+    _getDriverCount = lib.lookupFunction<_GetDriverCountC, _GetDriverCountDart>(
+        'GDALGetDriverCount');
+
+    // Phase 2
+    _openEx = lib.lookupFunction<_OpenExC, _OpenExDart>('GDALOpenEx');
+    _close = lib.lookupFunction<_CloseC, _CloseDart>('GDALClose');
+    _getRasterXSize =
+        lib.lookupFunction<_GetRasterXSizeC, _GetRasterXSizeDart>(
+            'GDALGetRasterXSize');
+    _getRasterYSize =
+        lib.lookupFunction<_GetRasterYSizeC, _GetRasterYSizeDart>(
+            'GDALGetRasterYSize');
+    _getRasterCount =
+        lib.lookupFunction<_GetRasterCountC, _GetRasterCountDart>(
+            'GDALGetRasterCount');
+    _getProjectionRef =
+        lib.lookupFunction<_GetProjectionRefC, _GetProjectionRefDart>(
+            'GDALGetProjectionRef');
+    _getGeoTransform =
+        lib.lookupFunction<_GetGeoTransformC, _GetGeoTransformDart>(
+            'GDALGetGeoTransform');
   }
+
+  // --- Phase 1 ---
 
   /// Registers all known GDAL drivers.
   void allRegister() => _allRegister();
@@ -48,4 +115,34 @@ class GdalApi {
 
   /// Returns the number of registered GDAL drivers.
   int getDriverCount() => _getDriverCount();
+
+  // --- Phase 2 ---
+
+  /// Opens a dataset via GDALOpenEx. Returns a dataset handle or nullptr.
+  Pointer<Void> openEx(Pointer<Utf8> filename, int flags) {
+    return _openEx(filename, flags, nullptr, nullptr, nullptr);
+  }
+
+  /// Closes a dataset handle.
+  void close(Pointer<Void> ds) => _close(ds);
+
+  /// Returns the raster width in pixels.
+  int getRasterXSize(Pointer<Void> ds) => _getRasterXSize(ds);
+
+  /// Returns the raster height in pixels.
+  int getRasterYSize(Pointer<Void> ds) => _getRasterYSize(ds);
+
+  /// Returns the number of raster bands.
+  int getRasterCount(Pointer<Void> ds) => _getRasterCount(ds);
+
+  /// Returns the projection as a WKT string. Owned by GDAL.
+  String getProjectionRef(Pointer<Void> ds) {
+    return readNativeString(_getProjectionRef(ds));
+  }
+
+  /// Reads the affine GeoTransform into [buffer] (6 doubles).
+  /// Returns a CPLErr code (0 = CE_None).
+  int getGeoTransform(Pointer<Void> ds, Pointer<Double> buffer) {
+    return _getGeoTransform(ds, buffer);
+  }
 }
