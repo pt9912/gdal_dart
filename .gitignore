@@ -1,0 +1,32 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+pubspec.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub/
+build/
+
+# Generated docs
+doc/api/
+
+# Test and coverage output
+coverage/
+test/.dart_tool/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local environment files
+.env
+.env.*
+
+# Native / package manager leftovers
+*.log
+

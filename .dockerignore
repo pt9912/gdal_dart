@@ -1,0 +1,13 @@
+.git
+.dart_tool
+.github/
+.idea/
+.vscode/
+build/
+coverage/
+doc/api/
+.DS_Store
+Thumbs.db
+.env
+.env.*
+*.log

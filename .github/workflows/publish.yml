@@ -1,0 +1,106 @@
+name: Publish to pub.dev
+
+on:
+  push:
+    tags:
+      - 'gdal_dart-v*.*.*'
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  validate-release:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      - name: Cache pub dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Validate tag, version and changelog
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f pubspec.yaml ]]; then
+            echo "pubspec.yaml is required for publishing"
+            exit 1
+          fi
+
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "CHANGELOG.md is required for publishing"
+            exit 1
+          fi
+
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#gdal_dart-v}"
+
+          if [[ "$tag" == "$version" ]]; then
+            echo "Tag must start with gdal_dart-v"
+            exit 1
+          fi
+
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Tag version must be SemVer without prerelease suffix: $version"
+            exit 1
+          fi
+
+          package_version="$(awk '/^version:/ { print $2; exit }' pubspec.yaml)"
+          if [[ "$version" != "$package_version" ]]; then
+            echo "Tag version $version does not match pubspec.yaml version $package_version"
+            exit 1
+          fi
+
+          if ! grep -q "^## $version\$" CHANGELOG.md; then
+            echo "CHANGELOG.md must contain a release heading '## $version'"
+            exit 1
+          fi
+
+      - name: Ensure tag commit is on main or master
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          for branch in main master; do
+            if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+              git fetch --no-tags origin "$branch:refs/remotes/origin/$branch"
+              if git merge-base --is-ancestor "$GITHUB_SHA" "refs/remotes/origin/$branch"; then
+                echo "Release commit found on $branch"
+                exit 0
+              fi
+            fi
+          done
+
+          echo "Release tag must point to a commit on main or master"
+          exit 1
+
+      - name: Publish dry-run
+        run: |
+          dart pub get
+          dart pub publish --dry-run
+
+  publish:
+    name: Publish gdal_dart
+    needs: validate-release
+    permissions:
+      contents: read
+      id-token: write
+    uses: dart-lang/setup-dart/.github/workflows/publish.yml@v1
+    with:
+      environment: pub.dev
+      working-directory: .

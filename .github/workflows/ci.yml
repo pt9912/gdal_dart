@@ -1,0 +1,103 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  package-checks:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect package scaffold
+        id: files
+        shell: bash
+        run: |
+          if [[ -f pubspec.yaml ]]; then
+            echo "has_pubspec=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_pubspec=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Dart
+        if: steps.files.outputs.has_pubspec == 'true'
+        uses: dart-lang/setup-dart@v1
+
+      - name: Cache pub dependencies
+        if: steps.files.outputs.has_pubspec == 'true'
+        uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: pub-${{ runner.os }}-
+
+      - name: Install native dependencies
+        if: steps.files.outputs.has_pubspec == 'true'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gdal-bin \
+            libgdal-dev
+
+      - name: Install dependencies
+        if: steps.files.outputs.has_pubspec == 'true'
+        run: dart pub get
+
+      - name: Analyze
+        if: steps.files.outputs.has_pubspec == 'true'
+        run: dart analyze
+
+      - name: Test
+        if: steps.files.outputs.has_pubspec == 'true'
+        run: dart test
+
+      - name: Generate docs
+        if: steps.files.outputs.has_pubspec == 'true'
+        run: dart doc
+
+      - name: CI placeholder
+        if: steps.files.outputs.has_pubspec != 'true'
+        run: |
+          echo "No pubspec.yaml present yet."
+          echo "CI package steps are intentionally skipped until the Dart package scaffold exists."
+
+  docker-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Detect Docker build inputs
+        id: files
+        shell: bash
+        run: |
+          if [[ -f Dockerfile && -f pubspec.yaml ]]; then
+            echo "can_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "can_build=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build analyze stage
+        if: steps.files.outputs.can_build == 'true'
+        run: docker build --target analyze .
+
+      - name: Build test stage
+        if: steps.files.outputs.can_build == 'true'
+        run: docker build --target test .
+
+      - name: Build coverage-check stage
+        if: steps.files.outputs.can_build == 'true'
+        run: docker build --target coverage-check --build-arg COVERAGE_MIN=80 .
+
+      - name: Docker placeholder
+        if: steps.files.outputs.can_build != 'true'
+        run: |
+          echo "Docker build skipped."
+          echo "Dockerfile exists, but pubspec.yaml is not present yet."
