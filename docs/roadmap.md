@@ -139,6 +139,30 @@ Ergebnis:
 
 - Das Paket kann nicht nur lesen, sondern auch neue GeoTIFFs erzeugen
 
+## Phase 5b: Raumbezug und CRS über die OSR-API
+
+Ziel:
+Koordinatenreferenzsysteme aus GeoTIFF-Datasets strukturiert auslesen und in verschiedenen Formaten exportieren.
+
+Umfang:
+
+- `SpatialReference`-Modell in der `model/`-Schicht einführen
+- CRS aus Dataset-WKT importieren (`OSRImportFromWkt`)
+- Export als WKT1 (`OSRExportToWkt`) und WKT2 (`OSRExportToWktEx`)
+- Authority-Code und -Name auslesen (`OSRGetAuthorityCode`, `OSRGetAuthorityName`)
+- CRS-Vergleich (`OSRIsSame`)
+- `ogr_srs_api.h` in `ffigen.yaml` aufnehmen
+- Native Brücke (`gdal_srs.dart`) für OSR-Funktionen anlegen
+- Lifecycle: OSR-Handle über `close()` oder bei Dataset-Schließung freigeben
+
+Ergebnis:
+
+- CRS-Informationen sind als typisiertes Dart-Objekt verfügbar statt nur als WKT-String
+- Authority-Codes (z.B. `EPSG:4326`) sind direkt abrufbar
+- Grundlage für spätere Koordinatentransformation
+
+Referenz: [GDAL OGR Spatial Reference Tutorial](https://gdal.org/en/stable/tutorials/osr_api_tut.html)
+
 ## Phase 6: API-Härtung
 
 Ziel:
@@ -200,6 +224,7 @@ Ergebnis:
 5. Rasterband-Lesen per `GDALRasterIO`
 6. Tile-Lesen und COG-Zugriff
 7. Fixtures und Integrationstests ergänzen
+8. CRS-Zugriff über OSR-API
 
 ## Meilensteine
 
@@ -217,6 +242,12 @@ Ergebnis:
 - Tile-/Block-Lesen und COG-Fernzugriff
 - Overview-Zugriff
 - Integrationstests vorhanden
+
+### M2b: CRS-Zugriff
+
+- SpatialReference-Modell
+- WKT- und Authority-Code-Export
+- CRS-Vergleich
 
 ### M3: Write support
 

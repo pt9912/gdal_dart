@@ -236,6 +236,13 @@ Deshalb sollten primär Funktionen wie diese genutzt werden:
 - `GDALGetBlockSize`
 - `GDALGetOverviewCount`
 - `GDALGetOverview`
+- `OSRNewSpatialReference`
+- `OSRImportFromWkt`
+- `OSRExportToWkt`
+- `OSRExportToWktEx`
+- `OSRGetAuthorityCode`
+- `OSRGetAuthorityName`
+- `OSRDestroySpatialReference`
 
 ## Bibliothekslade-Strategie
 
@@ -318,6 +325,57 @@ Beispielhafte Exception-Typen:
 - `GdalException`
 - `GdalLibraryLoadException`
 - `GdalDatasetClosedException`
+
+## Raumbezug und Koordinatenreferenzsystem
+
+### Aktueller Stand
+
+Das Projekt liest die Projektion eines Datasets als WKT-String über `GDALGetProjectionRef`.
+Dieser String beschreibt das Koordinatenreferenzsystem (CRS), wird aber nicht weiter interpretiert.
+
+### Erweiterung über die OSR-API
+
+Für weitergehende CRS-Operationen stellt GDAL die OGR Spatial Reference API (OSR) bereit.
+Diese ermöglicht unter anderem:
+
+- WKT-Export in verschiedenen Versionen (WKT1, WKT2:2019)
+- Export nach PROJ-String und Authority-Codes (z.B. `EPSG:4326`)
+- CRS-Erkennung und -Vergleich
+- Koordinatentransformation zwischen CRS
+
+Relevante C-Funktionen:
+
+- `OSRNewSpatialReference` — CRS-Objekt erzeugen
+- `OSRImportFromWkt` — CRS aus WKT-String laden
+- `OSRExportToWkt` — Export als WKT1
+- `OSRExportToWktEx` — Export als WKT2 mit Formatoptionen
+- `OSRExportToProj4` — Export als PROJ-String
+- `OSRGetAuthorityCode` / `OSRGetAuthorityName` — Authority-Code auslesen (z.B. EPSG)
+- `OSRIsSame` — CRS-Vergleich
+- `OCTNewCoordinateTransformation` — Koordinatentransformation zwischen zwei CRS
+- `OSRDestroySpatialReference` — CRS-Objekt freigeben
+
+Referenz: [GDAL OGR Spatial Reference Tutorial](https://gdal.org/en/stable/tutorials/osr_api_tut.html)
+
+### Geplanter API-Schnitt
+
+Die Dart-API sollte CRS-Informationen als eigenes Modellobjekt kapseln:
+
+```dart
+final crs = dataset.spatialReference;
+print(crs.toWkt());           // WKT2
+print(crs.authorityCode);     // "4326"
+print(crs.authorityName);     // "EPSG"
+```
+
+Das `SpatialReference`-Objekt gehört in die `model/`-Schicht und besitzt intern ein OSR-Handle, das über `close()` oder automatisch bei Dataset-Schließung freigegeben wird.
+
+### Architektonische Konsequenzen
+
+- Die `ffigen.yaml` muss um `ogr_srs_api.h` erweitert werden.
+- Die `native/`-Schicht erhält eine neue Datei (z.B. `gdal_srs.dart`) für die OSR-Funktionen.
+- Die öffentliche API erhält ein `SpatialReference`-Modell mit WKT-Export, Authority-Codes und CRS-Vergleich.
+- Koordinatentransformation ist ein separater Erweiterungsschritt nach dem CRS-Lesezugriff.
 
 ## Datentransfer und Rasterlesen
 
