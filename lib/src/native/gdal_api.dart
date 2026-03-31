@@ -97,6 +97,27 @@ typedef _RasterIODart = int Function(
     int pixelSpace,
     int lineSpace);
 
+// --- Phase 3b: Tile reading & overviews ---
+
+typedef _GetRasterBandXSizeC = Int32 Function(Pointer<Void> band);
+typedef _GetRasterBandXSizeDart = int Function(Pointer<Void> band);
+
+typedef _GetRasterBandYSizeC = Int32 Function(Pointer<Void> band);
+typedef _GetRasterBandYSizeDart = int Function(Pointer<Void> band);
+
+typedef _ReadBlockC = Int32 Function(
+    Pointer<Void> band, Int32 xBlock, Int32 yBlock, Pointer<Void> buf);
+typedef _ReadBlockDart = int Function(
+    Pointer<Void> band, int xBlock, int yBlock, Pointer<Void> buf);
+
+typedef _GetOverviewCountC = Int32 Function(Pointer<Void> band);
+typedef _GetOverviewCountDart = int Function(Pointer<Void> band);
+
+typedef _GetOverviewC = Pointer<Void> Function(
+    Pointer<Void> band, Int32 index);
+typedef _GetOverviewDart = Pointer<Void> Function(
+    Pointer<Void> band, int index);
+
 /// Low-level access to GDAL C API functions.
 ///
 /// Uses manual [DynamicLibrary.lookupFunction] calls. The generated
@@ -122,6 +143,13 @@ class GdalApi {
   late final _GetRasterNoDataValueDart _getRasterNoDataValue;
   late final _GetBlockSizeDart _getBlockSize;
   late final _RasterIODart _rasterIO;
+
+  // Phase 3b
+  late final _GetRasterBandXSizeDart _getRasterBandXSize;
+  late final _GetRasterBandYSizeDart _getRasterBandYSize;
+  late final _ReadBlockDart _readBlock;
+  late final _GetOverviewCountDart _getOverviewCount;
+  late final _GetOverviewDart _getOverview;
 
   GdalApi(DynamicLibrary lib) {
     // Phase 1
@@ -166,6 +194,21 @@ class GdalApi {
             'GDALGetBlockSize');
     _rasterIO =
         lib.lookupFunction<_RasterIOC, _RasterIODart>('GDALRasterIO');
+
+    // Phase 3b
+    _getRasterBandXSize =
+        lib.lookupFunction<_GetRasterBandXSizeC, _GetRasterBandXSizeDart>(
+            'GDALGetRasterBandXSize');
+    _getRasterBandYSize =
+        lib.lookupFunction<_GetRasterBandYSizeC, _GetRasterBandYSizeDart>(
+            'GDALGetRasterBandYSize');
+    _readBlock =
+        lib.lookupFunction<_ReadBlockC, _ReadBlockDart>('GDALReadBlock');
+    _getOverviewCount =
+        lib.lookupFunction<_GetOverviewCountC, _GetOverviewCountDart>(
+            'GDALGetOverviewCount');
+    _getOverview =
+        lib.lookupFunction<_GetOverviewC, _GetOverviewDart>('GDALGetOverview');
   }
 
   // --- Phase 1 ---
@@ -254,5 +297,27 @@ class GdalApi {
   ) {
     return _rasterIO(band, rwFlag, xOff, yOff, xSize, ySize, data, bufXSize,
         bufYSize, bufType, pixelSpace, lineSpace);
+  }
+
+  // --- Phase 3b ---
+
+  /// Returns the raster band width in pixels.
+  int getRasterBandXSize(Pointer<Void> band) => _getRasterBandXSize(band);
+
+  /// Returns the raster band height in pixels.
+  int getRasterBandYSize(Pointer<Void> band) => _getRasterBandYSize(band);
+
+  /// Reads a single block at [xBlock], [yBlock] into [buf].
+  /// Returns CPLErr (0 = CE_None).
+  int readBlock(Pointer<Void> band, int xBlock, int yBlock, Pointer<Void> buf) {
+    return _readBlock(band, xBlock, yBlock, buf);
+  }
+
+  /// Returns the number of overview levels.
+  int getOverviewCount(Pointer<Void> band) => _getOverviewCount(band);
+
+  /// Returns the overview band handle at [index] (0-based). Nullptr on error.
+  Pointer<Void> getOverview(Pointer<Void> band, int index) {
+    return _getOverview(band, index);
   }
 }

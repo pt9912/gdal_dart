@@ -14,6 +14,8 @@ import 'native/gdal_errors.dart';
 /// Does not own the native band handle — it is valid only while the
 /// parent dataset is open. Accessing a band after the dataset is closed
 /// throws [GdalDatasetClosedException].
+///
+/// Overview bands obtained via [overview] share the same lifecycle.
 class RasterBand {
   final GdalApi _api;
   final Pointer<Void> _handle;
@@ -33,6 +35,26 @@ class RasterBand {
     }
     return RasterBand._(api, handle, dataset, bandIndex);
   }
+
+  // --- Dimensions ---
+
+  /// Band width in pixels.
+  ///
+  /// Equal to the dataset width for main bands, but smaller for overviews.
+  int get width {
+    _ensureDatasetOpen();
+    return _api.getRasterBandXSize(_handle);
+  }
+
+  /// Band height in pixels.
+  ///
+  /// Equal to the dataset height for main bands, but smaller for overviews.
+  int get height {
+    _ensureDatasetOpen();
+    return _api.getRasterBandYSize(_handle);
+  }
+
+  // --- Metadata ---
 
   /// The GDAL data type of this band.
   RasterDataType get dataType {
@@ -79,6 +101,8 @@ class RasterBand {
       calloc.free(y);
     }
   }
+
+  // --- Typed reads (full band or window via GDALRasterIO) ---
 
   /// Reads the band (or a [window]) as [Uint8List].
   ///
@@ -142,6 +166,84 @@ class RasterBand {
     }
   }
 
+  // --- Tile / block access ---
+
+  /// Number of tiles in the horizontal direction.
+  int get tileCountX {
+    _ensureDatasetOpen();
+    return (width + blockWidth - 1) ~/ blockWidth;
+  }
+
+  /// Number of tiles in the vertical direction.
+  int get tileCountY {
+    _ensureDatasetOpen();
+    return (height + blockHeight - 1) ~/ blockHeight;
+  }
+
+  /// Returns the [RasterWindow] for the tile at [xBlock], [yBlock].
+  ///
+  /// Edge tiles are clamped to the band boundaries and may be smaller
+  /// than [blockWidth] / [blockHeight].
+  RasterWindow tileWindow(int xBlock, int yBlock) {
+    _ensureDatasetOpen();
+    final xOff = xBlock * blockWidth;
+    final yOff = yBlock * blockHeight;
+    final w = width;
+    final h = height;
+    return RasterWindow(
+      xOffset: xOff,
+      yOffset: yOff,
+      width: (xOff + blockWidth > w) ? w - xOff : blockWidth,
+      height: (yOff + blockHeight > h) ? h - yOff : blockHeight,
+    );
+  }
+
+  /// Reads a single tile at block coordinates [xBlock], [yBlock]
+  /// using `GDALReadBlock`.
+  ///
+  /// Returns raw bytes in the band's native [dataType]. The buffer size
+  /// is always `blockWidth * blockHeight * dataType.sizeInBytes`,
+  /// even for edge tiles (GDAL pads the block).
+  Uint8List readBlock(int xBlock, int yBlock) {
+    _ensureDatasetOpen();
+    final dt = dataType;
+    final bufSize = blockWidth * blockHeight * dt.sizeInBytes;
+    final buf = calloc<Uint8>(bufSize);
+    try {
+      final err = _api.readBlock(_handle, xBlock, yBlock, buf.cast<Void>());
+      if (err != 0) {
+        throw GdalException('GDALReadBlock failed (CPLErr: $err)');
+      }
+      return Uint8List.fromList(buf.asTypedList(bufSize));
+    } finally {
+      calloc.free(buf);
+    }
+  }
+
+  // --- Overviews ---
+
+  /// Number of overview (pyramid) levels available for this band.
+  int get overviewCount {
+    _ensureDatasetOpen();
+    return _api.getOverviewCount(_handle);
+  }
+
+  /// Returns the [RasterBand] for overview level [level] (0-based).
+  ///
+  /// The overview band has its own [width], [height], and [blockWidth] /
+  /// [blockHeight], and supports all the same read operations.
+  ///
+  /// Throws [GdalException] if [level] is out of range.
+  RasterBand overview(int level) {
+    _ensureDatasetOpen();
+    final handle = _api.getOverview(_handle, level);
+    if (handle == nullptr) {
+      throw GdalException(
+          'Failed to get overview $level for band $index');
+    }
+    return RasterBand._(_api, handle, _dataset, index);
+  }
+
   // --- Internal ---
 
   Pointer<Void> _readRaw(
@@ -172,8 +274,8 @@ class RasterBand {
   RasterWindow _fullWindow() => RasterWindow(
         xOffset: 0,
         yOffset: 0,
-        width: _dataset.width,
-        height: _dataset.height,
+        width: width,
+        height: height,
       );
 
   void _ensureDatasetOpen() {
