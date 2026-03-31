@@ -5,6 +5,7 @@ import 'package:ffi/ffi.dart';
 import 'model/geo_transform.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_errors.dart';
+import 'raster_band.dart';
 
 /// A read-only handle to an opened GeoTIFF dataset.
 ///
@@ -14,7 +15,8 @@ import 'native/gdal_errors.dart';
 /// final dataset = gdal.openGeoTiff('example.tif');
 /// try {
 ///   print(dataset.width);
-///   print(dataset.projectionWkt);
+///   final band = dataset.band(1);
+///   final pixels = band.readAsUint8();
 /// } finally {
 ///   dataset.close();
 /// }
@@ -43,6 +45,12 @@ class GeoTiffDataset {
     } finally {
       calloc.free(pathPtr);
     }
+  }
+
+  /// The native dataset handle. Used internally by [RasterBand].
+  Pointer<Void> get nativeHandle {
+    _ensureOpen();
+    return _handle;
   }
 
   /// Raster width in pixels.
@@ -84,6 +92,14 @@ class GeoTiffDataset {
     } finally {
       calloc.free(buffer);
     }
+  }
+
+  /// Returns the [RasterBand] at 1-based [index].
+  ///
+  /// Throws [GdalException] if the index is out of range.
+  RasterBand band(int index) {
+    _ensureOpen();
+    return RasterBand.fromDataset(_api, this, index);
   }
 
   /// Whether this dataset has been closed.

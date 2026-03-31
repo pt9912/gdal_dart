@@ -50,6 +50,53 @@ typedef _GetGeoTransformC = Int32 Function(
 typedef _GetGeoTransformDart = int Function(
     Pointer<Void> ds, Pointer<Double> transform);
 
+// --- Phase 3: Raster band access ---
+
+typedef _GetRasterBandC = Pointer<Void> Function(
+    Pointer<Void> ds, Int32 band);
+typedef _GetRasterBandDart = Pointer<Void> Function(
+    Pointer<Void> ds, int band);
+
+typedef _GetRasterDataTypeC = Int32 Function(Pointer<Void> band);
+typedef _GetRasterDataTypeDart = int Function(Pointer<Void> band);
+
+typedef _GetRasterNoDataValueC = Double Function(
+    Pointer<Void> band, Pointer<Int32> success);
+typedef _GetRasterNoDataValueDart = double Function(
+    Pointer<Void> band, Pointer<Int32> success);
+
+typedef _GetBlockSizeC = Void Function(
+    Pointer<Void> band, Pointer<Int32> xSize, Pointer<Int32> ySize);
+typedef _GetBlockSizeDart = void Function(
+    Pointer<Void> band, Pointer<Int32> xSize, Pointer<Int32> ySize);
+
+typedef _RasterIOC = Int32 Function(
+    Pointer<Void> band,
+    Int32 rwFlag,
+    Int32 xOff,
+    Int32 yOff,
+    Int32 xSize,
+    Int32 ySize,
+    Pointer<Void> data,
+    Int32 bufXSize,
+    Int32 bufYSize,
+    Int32 bufType,
+    Int32 pixelSpace,
+    Int32 lineSpace);
+typedef _RasterIODart = int Function(
+    Pointer<Void> band,
+    int rwFlag,
+    int xOff,
+    int yOff,
+    int xSize,
+    int ySize,
+    Pointer<Void> data,
+    int bufXSize,
+    int bufYSize,
+    int bufType,
+    int pixelSpace,
+    int lineSpace);
+
 /// Low-level access to GDAL C API functions.
 ///
 /// Uses manual [DynamicLibrary.lookupFunction] calls. The generated
@@ -68,6 +115,13 @@ class GdalApi {
   late final _GetRasterCountDart _getRasterCount;
   late final _GetProjectionRefDart _getProjectionRef;
   late final _GetGeoTransformDart _getGeoTransform;
+
+  // Phase 3
+  late final _GetRasterBandDart _getRasterBand;
+  late final _GetRasterDataTypeDart _getRasterDataType;
+  late final _GetRasterNoDataValueDart _getRasterNoDataValue;
+  late final _GetBlockSizeDart _getBlockSize;
+  late final _RasterIODart _rasterIO;
 
   GdalApi(DynamicLibrary lib) {
     // Phase 1
@@ -96,6 +150,22 @@ class GdalApi {
     _getGeoTransform =
         lib.lookupFunction<_GetGeoTransformC, _GetGeoTransformDart>(
             'GDALGetGeoTransform');
+
+    // Phase 3
+    _getRasterBand =
+        lib.lookupFunction<_GetRasterBandC, _GetRasterBandDart>(
+            'GDALGetRasterBand');
+    _getRasterDataType =
+        lib.lookupFunction<_GetRasterDataTypeC, _GetRasterDataTypeDart>(
+            'GDALGetRasterDataType');
+    _getRasterNoDataValue =
+        lib.lookupFunction<_GetRasterNoDataValueC, _GetRasterNoDataValueDart>(
+            'GDALGetRasterNoDataValue');
+    _getBlockSize =
+        lib.lookupFunction<_GetBlockSizeC, _GetBlockSizeDart>(
+            'GDALGetBlockSize');
+    _rasterIO =
+        lib.lookupFunction<_RasterIOC, _RasterIODart>('GDALRasterIO');
   }
 
   // --- Phase 1 ---
@@ -144,5 +214,45 @@ class GdalApi {
   /// Returns a CPLErr code (0 = CE_None).
   int getGeoTransform(Pointer<Void> ds, Pointer<Double> buffer) {
     return _getGeoTransform(ds, buffer);
+  }
+
+  // --- Phase 3 ---
+
+  /// Returns a raster band handle (1-based index). Returns nullptr on error.
+  Pointer<Void> getRasterBand(Pointer<Void> ds, int band) {
+    return _getRasterBand(ds, band);
+  }
+
+  /// Returns the GDALDataType enum value for a band.
+  int getRasterDataType(Pointer<Void> band) => _getRasterDataType(band);
+
+  /// Returns the NoData value. Sets [success] to 1 if defined.
+  double getRasterNoDataValue(Pointer<Void> band, Pointer<Int32> success) {
+    return _getRasterNoDataValue(band, success);
+  }
+
+  /// Reads the block size into [xSize] and [ySize].
+  void getBlockSize(
+      Pointer<Void> band, Pointer<Int32> xSize, Pointer<Int32> ySize) {
+    _getBlockSize(band, xSize, ySize);
+  }
+
+  /// Reads raster data via GDALRasterIO. Returns CPLErr (0 = CE_None).
+  int rasterIO(
+    Pointer<Void> band,
+    int rwFlag,
+    int xOff,
+    int yOff,
+    int xSize,
+    int ySize,
+    Pointer<Void> data,
+    int bufXSize,
+    int bufYSize,
+    int bufType,
+    int pixelSpace,
+    int lineSpace,
+  ) {
+    return _rasterIO(band, rwFlag, xOff, yOff, xSize, ySize, data, bufXSize,
+        bufYSize, bufType, pixelSpace, lineSpace);
   }
 }
