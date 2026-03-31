@@ -5,7 +5,9 @@ import 'package:ffi/ffi.dart';
 import 'model/geo_transform.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_errors.dart';
+import 'native/gdal_srs.dart';
 import 'raster_band.dart';
+import 'spatial_reference.dart';
 
 /// A read-only handle to an opened GeoTIFF dataset.
 ///
@@ -23,15 +25,16 @@ import 'raster_band.dart';
 /// ```
 class GeoTiffDataset {
   final GdalApi _api;
+  final GdalSrs _srs;
   final Pointer<Void> _handle;
   bool _closed = false;
 
-  GeoTiffDataset._(this._api, this._handle);
+  GeoTiffDataset._(this._api, this._srs, this._handle);
 
   /// Opens a GeoTIFF file as a read-only dataset.
   ///
   /// Throws [GdalException] if the file cannot be opened.
-  factory GeoTiffDataset.open(GdalApi api, String path) {
+  factory GeoTiffDataset.open(GdalApi api, GdalSrs srs, String path) {
     // GDAL_OF_READONLY | GDAL_OF_RASTER
     const openFlags = 0x00 | 0x02;
 
@@ -41,7 +44,7 @@ class GeoTiffDataset {
       if (handle == nullptr) {
         throw GdalException('Failed to open GeoTIFF: $path');
       }
-      return GeoTiffDataset._(api, handle);
+      return GeoTiffDataset._(api, srs, handle);
     } finally {
       calloc.free(pathPtr);
     }
@@ -75,6 +78,21 @@ class GeoTiffDataset {
   String get projectionWkt {
     _ensureOpen();
     return _api.getProjectionRef(_handle);
+  }
+
+  /// Returns a new [SpatialReference] for this dataset's CRS.
+  ///
+  /// The returned reference is independently owned and must be closed
+  /// by the caller.
+  ///
+  /// Throws [GdalException] if the dataset has no valid CRS.
+  SpatialReference get spatialReference {
+    _ensureOpen();
+    final wkt = projectionWkt;
+    if (wkt.isEmpty) {
+      throw GdalException('Dataset has no spatial reference');
+    }
+    return SpatialReference.fromWkt(_srs, wkt);
   }
 
   /// Affine GeoTransform coefficients.

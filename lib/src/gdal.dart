@@ -1,8 +1,12 @@
+import 'dart:ffi';
+
 import 'geotiff_dataset.dart';
 import 'geotiff_writer.dart';
 import 'model/raster_data_type.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_library.dart';
+import 'native/gdal_srs.dart';
+import 'spatial_reference.dart';
 
 /// Main entry point for GDAL operations.
 ///
@@ -16,6 +20,7 @@ import 'native/gdal_library.dart';
 /// ```
 class Gdal {
   final GdalApi _api;
+  final GdalSrs _srs;
 
   /// Creates a new GDAL instance and registers all drivers.
   ///
@@ -26,7 +31,11 @@ class Gdal {
   ///
   /// Throws [GdalLibraryLoadException] if the library cannot be loaded.
   Gdal({String? libraryPath})
-      : _api = GdalApi(loadGdalLibrary(path: libraryPath)) {
+      : this._fromLib(loadGdalLibrary(path: libraryPath));
+
+  Gdal._fromLib(DynamicLibrary lib)
+      : _api = GdalApi(lib),
+        _srs = GdalSrs(lib) {
     _api.allRegister();
   }
 
@@ -44,7 +53,7 @@ class Gdal {
   /// Throws [GdalException] if the file cannot be opened.
   /// The returned [GeoTiffDataset] must be closed after use.
   GeoTiffDataset openGeoTiff(String path) {
-    return GeoTiffDataset.open(_api, path);
+    return GeoTiffDataset.open(_api, _srs, path);
   }
 
   /// Creates a new GeoTIFF file for writing.
@@ -71,5 +80,19 @@ class Gdal {
       dataType: dataType,
       options: options,
     );
+  }
+
+  /// Creates a [SpatialReference] from an EPSG code (e.g., 4326).
+  ///
+  /// The returned reference must be closed by the caller.
+  SpatialReference spatialReferenceFromEpsg(int code) {
+    return SpatialReference.fromEpsg(_srs, code);
+  }
+
+  /// Creates a [SpatialReference] from a WKT string.
+  ///
+  /// The returned reference must be closed by the caller.
+  SpatialReference spatialReferenceFromWkt(String wkt) {
+    return SpatialReference.fromWkt(_srs, wkt);
   }
 }

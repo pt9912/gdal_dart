@@ -10,3 +10,4 @@ export 'src/model/raster_window.dart' show RasterWindow;
 export 'src/native/gdal_errors.dart'
     show GdalException, GdalLibraryLoadException, GdalDatasetClosedException;
 export 'src/raster_band.dart' show RasterBand;
+export 'src/spatial_reference.dart' show SpatialReference;
