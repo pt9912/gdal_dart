@@ -45,3 +45,12 @@ Alle relevanten Änderungen des Pakets werden hier dokumentiert.
   - Normalisierung für Uint8–Float64-Datentypen
   - Vordefinierte Colormaps: viridis, terrain, turbo, rainbow, grayscale
   - Martini-kompatible Elevation-Ausgabe
+- `CoordinateTransform` für Koordinatentransformation zwischen CRS
+  via GDAL OCT API: `transformPoint()`, `transformPoints()`
+- `GeoTiffSource` — Convenience-Klasse, die ein GeoTIFF-Dataset mit
+  vorberechneten WGS 84 Bounds und Koordinatentransformation bündelt
+  (portiert aus v-map TypeScript `geotiff-source.ts`)
+- `Gdal.coordinateTransform()` und `Gdal.openGeoTiffSource()` als
+  Factory-Methoden
+- `OSRSetAxisMappingStrategy`-Binding: `SpatialReference` setzt
+  automatisch `OAMS_TRADITIONAL_GIS_ORDER` (lon/lat-Achsenreihenfolge)

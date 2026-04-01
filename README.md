@@ -37,6 +37,24 @@ void main() {
   print('Erster Pixel: ${pixels[0]}');
   dataset.close();
 
+  // --- Koordinatentransformation ---
+  final wgs84 = gdal.spatialReferenceFromEpsg(4326);
+  final utm32 = gdal.spatialReferenceFromEpsg(32632);
+  final ct = gdal.coordinateTransform(wgs84, utm32);
+  final (x, y) = ct.transformPoint(11.58, 48.14);
+  print('UTM32: $x, $y');
+  ct.close();
+  utm32.close();
+  wgs84.close();
+
+  // --- GeoTiffSource (Metadaten + WGS 84 Bounds) ---
+  final source = gdal.openGeoTiffSource('dem.tif');
+  print('CRS: ${source.fromProjection}');
+  print('WGS 84 Bounds: ${source.wgs84Bounds}');
+  final (lon, lat) = source.transformToWgs84(500000, 5400000);
+  print('WGS 84: $lon, $lat');
+  source.close();
+
   // --- Schreiben ---
   final writer = gdal.createGeoTiff('output.tif', width: 256, height: 256);
   writer.setGeoTransform(GeoTransform(
@@ -65,6 +83,8 @@ Weitere Beispiele:
 | `GeoTiffWriter` | Schreibzugriff — neues GeoTIFF erzeugen, Bänder befüllen |
 | `RasterBand` | Pixeldaten lesen — typisiert (`readAsUint8`, `readAsFloat32`, …), Tile-Zugriff, Overviews |
 | `SpatialReference` | CRS-Objekt — WKT1/WKT2-Export, EPSG-Code, `isSame()`-Vergleich |
+| `CoordinateTransform` | Koordinatentransformation zwischen CRS — `transformPoint()`, `transformPoints()` |
+| `GeoTiffSource` | GeoTIFF-Quelle mit vorberechneten WGS 84 Bounds und Koordinatentransformation |
 | `GeoTransform` | Affine Transformation (6 Koeffizienten) |
 | `RasterDataType` | GDAL-Datentyp-Enum (`byte_`, `uint16`, `float32`, …) |
 | `RasterWindow` | Rechteckiger Raster-Ausschnitt |
@@ -84,10 +104,11 @@ Weitere Beispiele:
 
 ### Ressourcen-Lebensdauer
 
-`GeoTiffDataset`, `GeoTiffWriter` und `SpatialReference` besitzen native Handles.
+`GeoTiffDataset`, `GeoTiffWriter`, `SpatialReference`, `CoordinateTransform` und `GeoTiffSource` besitzen native Handles.
 Jede Instanz **muss** mit `close()` freigegeben werden.
 `close()` ist idempotent.
 Bei `GeoTiffWriter` ist `close()` Pflicht, da erst dort Daten auf Disk geflusht werden.
+`GeoTiffSource.close()` schließt alle internen Ressourcen (Dataset, Transform, SpatialReferences).
 
 ## Entwicklung
 
