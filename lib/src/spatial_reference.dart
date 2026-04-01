@@ -26,6 +26,9 @@ class SpatialReference {
 
   SpatialReference._(this._srs, this._handle);
 
+  /// OAMS_TRADITIONAL_GIS_ORDER — ensures (lon/lat) axis order.
+  static const int _traditionalGisOrder = 0;
+
   /// Creates a [SpatialReference] from a WKT string.
   ///
   /// Throws [GdalException] if the WKT cannot be parsed.
@@ -36,6 +39,7 @@ class SpatialReference {
       if (handle == nullptr) {
         throw GdalException('Failed to create SpatialReference from WKT');
       }
+      srs.setAxisMappingStrategy(handle, _traditionalGisOrder);
       return SpatialReference._(srs, handle);
     } finally {
       calloc.free(wktPtr);
@@ -55,6 +59,7 @@ class SpatialReference {
       srs.destroy(handle);
       throw GdalException('Failed to import EPSG:$code (OGRErr: $err)');
     }
+    srs.setAxisMappingStrategy(handle, _traditionalGisOrder);
     return SpatialReference._(srs, handle);
   }
 
