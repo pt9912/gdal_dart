@@ -1,4 +1,2 @@
-# GDAL is not thread-safe during driver registration (GDALAllRegister).
-# Running test files concurrently in separate Dart isolates can trigger
-# segfaults inside the shared library. Limit concurrency to 1.
-concurrency: 1
+# GDALAllRegister is guarded by a file lock in Gdal._guardedRegister,
+# so test files can run concurrently across isolates without segfaults.

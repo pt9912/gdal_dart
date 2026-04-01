@@ -1,4 +1,5 @@
 import 'dart:ffi';
+import 'dart:io';
 
 import 'geotiff_dataset.dart';
 import 'geotiff_writer.dart';
@@ -19,10 +20,16 @@ import 'spatial_reference.dart';
 /// dataset.close();
 /// ```
 class Gdal {
+  static bool _driversRegistered = false;
+
   final GdalApi _api;
   final GdalSrs _srs;
 
   /// Creates a new GDAL instance and registers all drivers.
+  ///
+  /// Driver registration (`GDALAllRegister`) is guarded by a file lock so
+  /// that concurrent calls from multiple isolates are serialized. Within the
+  /// same isolate, subsequent calls skip registration entirely.
   ///
   /// Optionally provide [libraryPath] to load GDAL from a specific location.
   /// Otherwise, the library is resolved via:
@@ -36,7 +43,32 @@ class Gdal {
   Gdal._fromLib(DynamicLibrary lib)
       : _api = GdalApi(lib),
         _srs = GdalSrs(lib) {
-    _api.allRegister();
+    if (!_driversRegistered) {
+      _guardedRegister(_api);
+      _driversRegistered = true;
+    }
+  }
+
+  /// Calls [GDALAllRegister] under an exclusive file lock to prevent
+  /// concurrent registration from multiple isolates, which can segfault.
+  static void _guardedRegister(GdalApi api) {
+    try {
+      final lockPath =
+          '${Directory.systemTemp.path}${Platform.pathSeparator}.gdal_dart_init.lock';
+      final raf = File(lockPath).openSync(mode: FileMode.write);
+      try {
+        raf.lockSync(FileLock.exclusive);
+        api.allRegister();
+      } finally {
+        try {
+          raf.unlockSync();
+        } catch (_) {}
+        raf.closeSync();
+      }
+    } on FileSystemException {
+      // Lock file unavailable — fall back to unguarded registration.
+      api.allRegister();
+    }
   }
 
   /// The GDAL release name (e.g., `"3.8.4"`).
