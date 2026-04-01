@@ -119,10 +119,19 @@ docker build --target analyze .
 docker build --target test .
 docker build --target coverage --no-cache-filter coverage --progress=plain .
 docker build --target coverage-check --no-cache-filter coverage --progress=plain --build-arg COVERAGE_MIN=95 .
-docker build --target doc .
+docker build --target doc -t gdal_dart:doc .
 docker build --target bindings .
 docker build --target publish-check .
 ```
+
+### API-Dokumentation generieren
+
+```bash
+docker build --target doc -t gdal_dart:doc .
+docker run --rm gdal_dart:doc | tar -xzf -
+```
+
+Die HTML-Dokumentation liegt danach in `doc/api/`.
 
 ## CI/CD
 

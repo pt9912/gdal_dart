@@ -67,7 +67,7 @@ RUN awk -F'[,:]' -v min="$COVERAGE_MIN" '\
 #
 # Generate + extract:
 #   docker build --target doc -t gdal_dart:doc .
-#   docker run --rm gdal_dart:doc > doc-api.tar.gz
+#   docker run --rm gdal_dart:doc | tar -xzf -
 FROM base AS doc
 RUN dart doc
 RUN test -f doc/api/index.html && echo "API docs generated: $(find doc/api -name '*.html' | wc -l) HTML files"
