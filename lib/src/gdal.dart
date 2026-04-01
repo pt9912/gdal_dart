@@ -1,7 +1,11 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:ffi/ffi.dart';
+
+import 'coordinate_transform.dart';
 import 'geotiff_dataset.dart';
+import 'geotiff_source.dart';
 import 'geotiff_writer.dart';
 import 'model/raster_data_type.dart';
 import 'native/gdal_api.dart';
@@ -49,25 +53,52 @@ class Gdal {
     }
   }
 
-  /// Calls [GDALAllRegister] under an exclusive file lock to prevent
-  /// concurrent registration from multiple isolates, which can segfault.
+  /// Registers GDAL drivers with cross-isolate thread safety.
+  ///
+  /// On POSIX systems, uses BSD file locking (`flock`) via FFI to serialize
+  /// concurrent `GDALAllRegister` calls. Unlike POSIX `fcntl` locks (used by
+  /// Dart's `lockSync`), `flock` locks are per-file-description and block
+  /// across threads within the same process.
   static void _guardedRegister(GdalApi api) {
-    try {
-      final lockPath =
-          '${Directory.systemTemp.path}${Platform.pathSeparator}.gdal_dart_init.lock';
-      final raf = File(lockPath).openSync(mode: FileMode.write);
+    if (Platform.isLinux || Platform.isMacOS) {
       try {
-        raf.lockSync(FileLock.exclusive);
-        api.allRegister();
-      } finally {
-        try {
-          raf.unlockSync();
-        } catch (_) {}
-        raf.closeSync();
+        _flockGuardedRegister(api);
+        return;
+      } catch (_) {
+        // FFI locking unavailable — fall through to unguarded call.
       }
-    } on FileSystemException {
-      // Lock file unavailable — fall back to unguarded registration.
+    }
+    api.allRegister();
+  }
+
+  static void _flockGuardedRegister(GdalApi api) {
+    final libc = DynamicLibrary.process();
+
+    final nativeOpen = libc.lookupFunction<
+        Int32 Function(Pointer<Utf8>, Int32, Int32),
+        int Function(Pointer<Utf8>, int, int)>('open');
+    final nativeFlock = libc.lookupFunction<Int32 Function(Int32, Int32),
+        int Function(int, int)>('flock');
+    final nativeClose = libc.lookupFunction<Int32 Function(Int32),
+        int Function(int)>('close');
+
+    // O_CREAT | O_RDWR — platform-specific values.
+    final flags = Platform.isLinux ? 0x42 : 0x0202;
+    final pathPtr = '/tmp/.gdal_dart_init.lock'.toNativeUtf8();
+    final fd = nativeOpen(pathPtr, flags, 436 /* 0644 */);
+    malloc.free(pathPtr);
+
+    if (fd < 0) {
       api.allRegister();
+      return;
+    }
+
+    nativeFlock(fd, 2 /* LOCK_EX */);
+    try {
+      api.allRegister();
+    } finally {
+      nativeFlock(fd, 8 /* LOCK_UN */);
+      nativeClose(fd);
     }
   }
 
@@ -135,5 +166,24 @@ class Gdal {
   /// The returned reference must be closed by the caller.
   SpatialReference spatialReferenceFromWkt(String wkt) {
     return SpatialReference.fromWkt(_srs, wkt);
+  }
+
+  /// Creates a [CoordinateTransform] from [source] to [target] CRS.
+  ///
+  /// The returned transform must be closed by the caller.
+  CoordinateTransform coordinateTransform(
+      SpatialReference source, SpatialReference target) {
+    return CoordinateTransform(_srs, source, target);
+  }
+
+  /// Opens a GeoTIFF and returns a [GeoTiffSource] with pre-computed
+  /// metadata and WGS 84 bounds.
+  ///
+  /// Optionally override the [nodata] value.
+  ///
+  /// The returned source owns the dataset and must be closed after use.
+  GeoTiffSource openGeoTiffSource(String path, {double? nodata}) {
+    final dataset = open(path);
+    return GeoTiffSource.fromDataset(_srs, dataset, nodata: nodata);
   }
 }
