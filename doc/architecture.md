@@ -113,7 +113,7 @@ Dateien:
 ## Verzeichnisstruktur
 
 ```text
-docs/
+doc/
   architecture.md
   roadmap.md
 

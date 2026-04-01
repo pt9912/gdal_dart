@@ -2,7 +2,7 @@
 
 Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 
-## Unreleased
+## 0.0.1
 
 ### Added
 - `Gdal` Einstiegspunkt mit `openGeoTiff()`, `createGeoTiff()`,

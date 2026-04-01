@@ -133,5 +133,5 @@ GitHub Actions decken ab:
 
 ## Weiterführend
 
-- [Architektur](docs/architecture.md) — Schichtenmodell, Designentscheidungen
-- [Roadmap](docs/roadmap.md) — Phasen und Meilensteine
+- [Architektur](doc/architecture.md) — Schichtenmodell, Designentscheidungen
+- [Roadmap](doc/roadmap.md) — Phasen und Meilensteine

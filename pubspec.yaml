@@ -1,6 +1,7 @@
 name: gdal_dart
 description: Dart FFI package for GeoTIFF functionality based on GDAL.
 version: 0.0.1
+repository: https://github.com/pt9912/gdal_dart
 
 environment:
   sdk: ^3.4.0

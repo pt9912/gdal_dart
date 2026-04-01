@@ -23,7 +23,7 @@ Umfang:
 - `pubspec.yaml` anlegen
 - `ffigen` als Dev-Dependency aufnehmen
 - `ffigen.yaml` definieren
-- Verzeichnisstruktur aus `docs/architecture.md` anlegen
+- Verzeichnisstruktur aus `doc/architecture.md` anlegen
 - Skript oder Workflow zur Binding-Generierung anlegen
 - Dockerfile für reproduzierbare Analyse-, Test- und Doku-Läufe anlegen
 
