@@ -59,3 +59,17 @@ Der Workflow `.github/workflows/publish.yml` wird nur für Tags im Schema
 
 Der eigentliche Upload läuft danach über den offiziellen
 `dart-lang/setup-dart`-Publish-Workflow und das GitHub-Environment `pub.dev`.
+
+## Manueller Publish via Docker
+
+Für den allerersten Publish eines neuen Packages (automatisiertes Publishing
+erfordert eine existierende Version auf pub.dev):
+
+```bash
+docker build --target publish-check -t gdal_dart:publish .
+docker run --rm -it --net=host gdal_dart:publish sh -c 'dart pub publish'
+```
+
+Der interaktive Modus (`-it`) ist nötig, damit die Authentifizierung über
+den Browser abgeschlossen werden kann. `--net=host` ermöglicht den
+Callback vom pub.dev OAuth-Flow.
