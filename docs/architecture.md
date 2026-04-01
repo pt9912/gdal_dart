@@ -3,13 +3,11 @@
 ## Ziel
 
 Dieses Projekt stellt GeoTIFF-Funktionalität aus GDAL für Dart bereit.
-Der Fokus liegt zunächst auf einem stabilen, kleinen API-Schnitt für Raster-Lesezugriffe, Metadaten und Band-Zugriffe.
+Es bietet Lesen, Schreiben, CRS-Handling, Koordinatentransformation und Tile-Processing.
 Die technische Basis sind:
 
 - `dart:ffi` für den Aufruf der nativen GDAL-C-API
 - `ffigen` zur Generierung der Low-Level-Bindings
-
-Schreibzugriffe, Warping und erweiterte Treiberfunktionen sollen erst auf einer stabilen Lese-Architektur aufbauen.
 
 ## Nicht-Ziele für die erste Ausbaustufe
 
@@ -70,41 +68,54 @@ Vorgesehene Datei:
 
 Diese Schicht kennt die generierten Bindings, aber noch nicht die endgültige Public API.
 
-Vorgesehene Dateien:
+Dateien:
 
 - `lib/src/native/gdal_library.dart`
 - `lib/src/native/gdal_api.dart`
+- `lib/src/native/gdal_srs.dart`
 - `lib/src/native/gdal_errors.dart`
+- `lib/src/native/gdal_constants.dart`
 - `lib/src/native/gdal_memory.dart`
 
 ### 4. Öffentliche Dart-API
 
 Die oberste Schicht stellt die fachliche API bereit.
-Sie soll für Paketnutzer idiomatisch und stabil sein.
+Sie ist für Paketnutzer idiomatisch und stabil.
 
-Vorgesehene Typen:
+Typen:
 
-- `Gdal`
-- `GeoTiffDataset`
-- `RasterBand`
-- `GeoTransform`
-- `RasterWindow`
-- `RasterSize`
-- `GdalException`
+- `Gdal` — Einstiegspunkt, Initialisierung, Factory-Methoden
+- `GeoTiffDataset` — Lesezugriff auf Raster-Datasets
+- `GeoTiffWriter` — Schreibzugriff, GeoTIFF-Erzeugung
+- `GeoTiffSource` — Convenience-Wrapper mit vorberechneten WGS 84 Bounds
+- `RasterBand` — Typisierter Pixel-/Tile-/Overview-Zugriff
+- `SpatialReference` — CRS-Objekt (EPSG, WKT1/WKT2, Vergleich)
+- `CoordinateTransform` — Koordinatentransformation zwischen CRS
+- `GeoTransform` — Affine Transformation (6 Koeffizienten)
+- `RasterWindow` — Rechteckiger Raster-Ausschnitt
+- `RasterDataType` — GDAL-Datentyp-Enum
+- `BandStatistics` — Min/Max/Mean/StdDev
+- `ColorInterpretation` — Band-Farbinterpretation
+- `GdalException` und Unterklassen
 
-Vorgesehene Dateien:
+Dateien:
 
 - `lib/gdal_dart.dart`
 - `lib/src/gdal.dart`
 - `lib/src/geotiff_dataset.dart`
+- `lib/src/geotiff_writer.dart`
+- `lib/src/geotiff_source.dart`
+- `lib/src/coordinate_transform.dart`
 - `lib/src/raster_band.dart`
+- `lib/src/spatial_reference.dart`
 - `lib/src/model/...`
 
-## Empfohlene Verzeichnisstruktur
+## Verzeichnisstruktur
 
 ```text
 docs/
   architecture.md
+  roadmap.md
 
 ffigen.yaml
 
@@ -115,17 +126,22 @@ lib/
       gdal_bindings.dart
     native/
       gdal_api.dart
+      gdal_srs.dart
       gdal_errors.dart
+      gdal_constants.dart
       gdal_library.dart
       gdal_memory.dart
     model/
+      band_statistics.dart
+      color_interpretation.dart
       geo_transform.dart
       raster_data_type.dart
-      raster_size.dart
       raster_window.dart
     gdal.dart
     geotiff_dataset.dart
     geotiff_writer.dart
+    geotiff_source.dart
+    coordinate_transform.dart
     raster_band.dart
     spatial_reference.dart
     processing/
@@ -138,10 +154,15 @@ lib/
       colormap_utils.dart
       geotiff_tile_processor.dart
 
-tool/
-  generate_bindings.dart
-
 test/
+  helpers/
+    gdal_test_helpers.dart
+  fixtures/
+    tiny.tif
+    float32.tif
+    multiband_uint16.tif
+    tiled.tif
+    not_a_tiff.bin
   unit/
     processing/
       triangle_test.dart
@@ -152,7 +173,18 @@ test/
       normalization_utils_test.dart
       colormap_utils_test.dart
   integration/
+    gdal_init_test.dart
+    geotiff_open_test.dart
+    geotiff_read_test.dart
+    geotiff_write_test.dart
+    geotiff_multiband_test.dart
+    geotiff_source_test.dart
+    spatial_reference_test.dart
+    coordinate_transform_test.dart
+    tile_and_overview_test.dart
     tile_processor_test.dart
+    advanced_raster_test.dart
+    error_paths_test.dart
 ```
 
 ## Verantwortung der Schichten
@@ -192,50 +224,71 @@ test/
 - Vordefinierte Colormaps (viridis, terrain, turbo, rainbow, grayscale)
 - `GeoTIFFTileProcessor` als Orchestrierungsschicht für Tile-Rendering mit Reprojektion
 
-## Geplanter API-Schnitt
+## API-Schnitt
 
 ### Einstiegspunkt
 
 ```dart
 final gdal = Gdal();
+
+// Lesen
 final dataset = gdal.openGeoTiff('example.tif');
-
-final width = dataset.width;
-final height = dataset.height;
-final projection = dataset.projectionWkt;
-final transform = dataset.geoTransform;
-
-final band1 = dataset.band(1);
-final values = band1.readAsUint16();
-
+final band = dataset.band(1);
+final pixels = band.readAsUint8();
 dataset.close();
+
+// GeoTiffSource mit WGS 84 Bounds
+final source = gdal.openGeoTiffSource('dem.tif');
+print(source.wgs84Bounds);
+source.close();
+
+// Koordinatentransformation
+final ct = gdal.coordinateTransform(
+  gdal.spatialReferenceFromEpsg(4326),
+  gdal.spatialReferenceFromEpsg(32632),
+);
+final (x, y) = ct.transformPoint(11.58, 48.14);
+ct.close();
+
+// Schreiben
+final writer = gdal.createGeoTiff('output.tif', width: 256, height: 256);
+writer.writeAsUint8(1, Uint8List(256 * 256));
+writer.close();
 ```
 
-### Erste öffentliche Operationen
+### Öffentliche Operationen
 
 `Gdal`
 
-- GDAL initialisieren
-- GeoTIFF-Datei öffnen
-- Optionale Treiber-/Versionsinformationen bereitstellen
+- GDAL initialisieren, Treiber registrieren
+- Dateien öffnen (`open`, `openGeoTiff`, `openGeoTiffSource`)
+- GeoTIFF erzeugen (`createGeoTiff`)
+- CRS erstellen (`spatialReferenceFromEpsg`, `spatialReferenceFromWkt`)
+- Koordinatentransformation erzeugen (`coordinateTransform`)
+- Versionsinformationen (`versionString`, `versionNumber`, `driverCount`)
 
 `GeoTiffDataset`
 
-- Größe lesen
-- Bandanzahl lesen
-- Projektion lesen
-- GeoTransform lesen
-- Metadaten lesen
-- Rasterband abrufen
-- Ressource schließen
+- Dimensionen, Bandanzahl, Projektion, GeoTransform, Metadaten
+- Rasterbänder abrufen, Bulk-Reads (`readAllBandsAsUint8/Float32`)
+- SpatialReference abrufen
+
+`GeoTiffSource`
+
+- Vorberechnete WGS 84 Bounds und Quell-Bounds
+- Koordinatentransformation nach WGS 84 (`transformToWgs84`)
+- Zugriff auf Dataset, Bänder, GeoTransform, NoData, Resolution
+
+`CoordinateTransform`
+
+- Einzelpunkt-Transformation (`transformPoint`)
+- Batch-Transformation (`transformPoints`)
 
 `RasterBand`
 
-- Datentyp lesen
-- NoData-Wert lesen
-- Blockgröße lesen
-- Fenster lesen
-- Ganzes Band in typisierte Dart-Collections lesen
+- Typisierte Reads (`readAsUint8/Uint16/Int16/Uint32/Int32/Float32/Float64`)
+- Resampled Reads, Tile-/Block-Zugriff, Overviews
+- Statistiken, NoData, Datentyp, Farbinterpretation
 
 ## Native Integrationsstrategie
 
@@ -248,30 +301,26 @@ Die C-API ist für FFI stabiler als C++-Bindings:
 - weniger Build-Komplexität
 - plattformübergreifend robuster
 
-Deshalb sollten primär Funktionen wie diese genutzt werden:
+Die aktuell angebundenen C-Funktionen:
 
-- `GDALAllRegister`
-- `GDALOpenEx`
-- `GDALClose`
-- `GDALGetRasterXSize`
-- `GDALGetRasterYSize`
-- `GDALGetRasterCount`
-- `GDALGetProjectionRef`
-- `GDALGetGeoTransform`
-- `GDALGetRasterBand`
-- `GDALGetRasterDataType`
-- `GDALRasterIO`
-- `GDALGetRasterNoDataValue`
-- `GDALGetBlockSize`
-- `GDALGetOverviewCount`
-- `GDALGetOverview`
-- `OSRNewSpatialReference`
-- `OSRImportFromWkt`
-- `OSRExportToWkt`
-- `OSRExportToWktEx`
-- `OSRGetAuthorityCode`
-- `OSRGetAuthorityName`
-- `OSRDestroySpatialReference`
+- `GDALAllRegister`, `GDALVersionInfo`, `GDALGetDriverCount`
+- `GDALOpenEx`, `GDALClose`
+- `GDALGetRasterXSize`, `GDALGetRasterYSize`, `GDALGetRasterCount`
+- `GDALGetProjectionRef`, `GDALGetGeoTransform`
+- `GDALGetRasterBand`, `GDALGetRasterDataType`, `GDALGetRasterNoDataValue`
+- `GDALGetBlockSize`, `GDALRasterIO`, `GDALReadBlock`
+- `GDALGetRasterBandXSize`, `GDALGetRasterBandYSize`
+- `GDALGetOverviewCount`, `GDALGetOverview`
+- `GDALGetMetadata`, `GDALGetMetadataItem`
+- `GDALComputeRasterStatistics`, `GDALGetRasterColorInterpretation`
+- `GDALGetDriverByName`, `GDALCreate`, `GDALSetGeoTransform`, `GDALSetProjection`
+- `GDALSetRasterNoDataValue`, `GDALFlushCache`
+- `OSRNewSpatialReference`, `OSRDestroySpatialReference`, `OSRImportFromEPSG`
+- `OSRExportToWkt`, `OSRExportToWktEx`
+- `OSRGetAuthorityCode`, `OSRGetAuthorityName`, `OSRIsSame`
+- `OSRSetAxisMappingStrategy`
+- `OCTNewCoordinateTransformation`, `OCTTransform`, `OCTDestroyCoordinateTransformation`
+- `VSIFree`
 
 ## Bibliothekslade-Strategie
 
@@ -327,15 +376,30 @@ Darum gilt:
 - besitzt `GDALDatasetH`
 - schließt das Handle via `GDALClose`
 
+`GeoTiffWriter`
+
+- besitzt `GDALDatasetH` (Schreibmodus)
+- `close()` flusht Daten und gibt das Handle frei
+
+`GeoTiffSource`
+
+- besitzt `GeoTiffDataset`, `CoordinateTransform` und `SpatialReference`-Instanzen
+- `close()` gibt alle internen Ressourcen frei
+
+`SpatialReference`
+
+- besitzt `OGRSpatialReferenceH`
+- unabhängig vom Dataset — muss separat geschlossen werden
+
+`CoordinateTransform`
+
+- besitzt `OGRCoordinateTransformationH`
+- referenziert keine SRS-Handles (nur bei Erstellung benötigt)
+
 `RasterBand`
 
 - besitzt das Band-Handle nicht separat
 - lebt logisch nur solange das Dataset offen ist
-
-Wichtige Konsequenz:
-
-- `RasterBand` darf sein Parent-Dataset referenzieren
-- bandbezogene Methoden müssen prüfen, ob das Dataset noch offen ist
 
 ## Fehlerbehandlung
 
@@ -357,54 +421,62 @@ Beispielhafte Exception-Typen:
 
 ## Raumbezug und Koordinatenreferenzsystem
 
-### Aktueller Stand
+### CRS-Zugriff (implementiert)
 
-Das Projekt liest die Projektion eines Datasets als WKT-String über `GDALGetProjectionRef`.
-Dieser String beschreibt das Koordinatenreferenzsystem (CRS), wird aber nicht weiter interpretiert.
-
-### Erweiterung über die OSR-API
-
-Für weitergehende CRS-Operationen stellt GDAL die OGR Spatial Reference API (OSR) bereit.
-Diese ermöglicht unter anderem:
-
-- WKT-Export in verschiedenen Versionen (WKT1, WKT2:2019)
-- Export nach PROJ-String und Authority-Codes (z.B. `EPSG:4326`)
-- CRS-Erkennung und -Vergleich
-- Koordinatentransformation zwischen CRS
-
-Relevante C-Funktionen:
-
-- `OSRNewSpatialReference` — CRS-Objekt erzeugen
-- `OSRImportFromWkt` — CRS aus WKT-String laden
-- `OSRExportToWkt` — Export als WKT1
-- `OSRExportToWktEx` — Export als WKT2 mit Formatoptionen
-- `OSRExportToProj4` — Export als PROJ-String
-- `OSRGetAuthorityCode` / `OSRGetAuthorityName` — Authority-Code auslesen (z.B. EPSG)
-- `OSRIsSame` — CRS-Vergleich
-- `OCTNewCoordinateTransformation` — Koordinatentransformation zwischen zwei CRS
-- `OSRDestroySpatialReference` — CRS-Objekt freigeben
-
-Referenz: [GDAL OGR Spatial Reference Tutorial](https://gdal.org/en/stable/tutorials/osr_api_tut.html)
-
-### Geplanter API-Schnitt
-
-Die Dart-API sollte CRS-Informationen als eigenes Modellobjekt kapseln:
+Das Projekt bietet vollständigen CRS-Zugriff über die OGR Spatial Reference API (OSR):
 
 ```dart
 final crs = dataset.spatialReference;
-print(crs.toWkt());           // WKT2
-print(crs.authorityCode);     // "4326"
 print(crs.authorityName);     // "EPSG"
+print(crs.authorityCode);     // "4326"
+print(crs.toWkt());           // WKT1
+print(crs.toWkt2());          // WKT2:2019
+crs.close();
 ```
 
-Das `SpatialReference`-Objekt gehört in die `model/`-Schicht und besitzt intern ein OSR-Handle, das über `close()` oder automatisch bei Dataset-Schließung freigegeben wird.
+### Koordinatentransformation (implementiert)
 
-### Architektonische Konsequenzen
+Koordinatentransformation zwischen CRS erfolgt über die GDAL OCT API:
 
-- Die `ffigen.yaml` muss um `ogr_srs_api.h` erweitert werden.
-- Die `native/`-Schicht erhält eine neue Datei (z.B. `gdal_srs.dart`) für die OSR-Funktionen.
-- Die öffentliche API erhält ein `SpatialReference`-Modell mit WKT-Export, Authority-Codes und CRS-Vergleich.
-- Koordinatentransformation ist ein separater Erweiterungsschritt nach dem CRS-Lesezugriff.
+```dart
+final wgs84 = gdal.spatialReferenceFromEpsg(4326);
+final utm32 = gdal.spatialReferenceFromEpsg(32632);
+final ct = gdal.coordinateTransform(wgs84, utm32);
+final (x, y) = ct.transformPoint(11.58, 48.14);
+ct.close();
+```
+
+### GeoTiffSource (implementiert)
+
+Convenience-Klasse, die Dataset-Metadaten, WGS 84 Bounds und Koordinatentransformation bündelt:
+
+```dart
+final source = gdal.openGeoTiffSource('dem.tif');
+print(source.fromProjection);   // "EPSG:32632"
+print(source.wgs84Bounds);      // (west, south, east, north)
+final (lon, lat) = source.transformToWgs84(500000, 5400000);
+source.close();
+```
+
+### Achsenreihenfolge
+
+Alle `SpatialReference`-Instanzen setzen `OAMS_TRADITIONAL_GIS_ORDER`, damit Koordinaten konsistent in `(lon/lat)` bzw. `(easting/northing)` vorliegen. Das verhindert die GDAL 3.x-Standardreihenfolge `(lat/lon)`.
+
+### Angebundene C-Funktionen (OSR/OCT)
+
+- `OSRNewSpatialReference` — CRS-Objekt erzeugen
+- `OSRDestroySpatialReference` — CRS-Objekt freigeben
+- `OSRImportFromEPSG` — CRS aus EPSG-Code laden
+- `OSRExportToWkt` — Export als WKT1
+- `OSRExportToWktEx` — Export als WKT2 mit Formatoptionen
+- `OSRGetAuthorityCode` / `OSRGetAuthorityName` — Authority-Code auslesen
+- `OSRIsSame` — CRS-Vergleich
+- `OSRSetAxisMappingStrategy` — Achsenreihenfolge setzen
+- `OCTNewCoordinateTransformation` — Transformation zwischen zwei CRS erzeugen
+- `OCTTransform` — Punkte transformieren
+- `OCTDestroyCoordinateTransformation` — Transformation freigeben
+
+Referenz: [GDAL OGR Spatial Reference Tutorial](https://gdal.org/en/stable/tutorials/osr_api_tut.html)
 
 ## Datentransfer und Rasterlesen
 
@@ -606,17 +678,23 @@ Der Tile-Processor kann neben RGBA-Tiles auch Höhendaten als `Float32List` lief
 
 ## Erweiterungspfad
 
-Nach einer stabilen ersten Version ist diese Reihenfolge sinnvoll:
+Umgesetzt:
 
-1. Robustes GeoTIFF-Lesen
-2. Fenster- und Band-Lesen mit typisierten Buffern
-3. Metadaten, NoData, Blockgrößen
-4. Tile-/Block-basiertes Lesen für effiziente Kachelzugriffe
-5. COG-Unterstützung: Fernzugriff via `/vsicurl/` und Overview-Zugriff
-6. Schreiben neuer GeoTIFF-Dateien
-7. Mehr GDAL-Treiber
+1. GeoTIFF-Lesen (Dimensionen, Metadaten, GeoTransform, Projektion)
+2. Typisierte Band-Reads mit Fenster-Support
+3. Tile-/Block-Lesen, COG-Zugriff, Overviews
+4. GeoTIFF-Schreiben
+5. CRS-Zugriff über OSR-API (EPSG, WKT1/WKT2, Vergleich)
+6. Koordinatentransformation (OCT API)
+7. GeoTiffSource mit WGS 84 Bounds
 8. Triangulationsbasierte Tile-Reprojektion und Rendering
-9. Warping, Resampling und fortgeschrittene Rasteroperationen
+
+Mögliche nächste Schritte:
+
+- Warping und Resampling über GDAL
+- Mehr GDAL-Treiber (NetCDF, JPEG2000, …)
+- Async-/Isolate-basierte Parallelität
+- Optionaler `Finalizer` zusätzlich zu explizitem `close()`
 
 ## Entscheidungen
 
