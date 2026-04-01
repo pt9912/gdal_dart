@@ -1,8 +1,10 @@
 /// Dart FFI package for GeoTIFF functionality based on GDAL.
 library;
 
+export 'src/coordinate_transform.dart' show CoordinateTransform;
 export 'src/gdal.dart' show Gdal;
 export 'src/geotiff_dataset.dart' show GeoTiffDataset;
+export 'src/geotiff_source.dart' show GeoTiffSource, Bounds4;
 export 'src/geotiff_writer.dart' show GeoTiffWriter;
 export 'src/model/band_statistics.dart' show BandStatistics;
 export 'src/model/color_interpretation.dart' show ColorInterpretation;
