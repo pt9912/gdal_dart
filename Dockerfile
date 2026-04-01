@@ -65,13 +65,14 @@ RUN awk -F'[,:]' -v min="$COVERAGE_MIN" '\
 
 # Doc — generate API documentation into doc/api/.
 #
-# Generate:  docker build --target doc -t gdal_dart:doc .
-# Extract:   docker run --rm gdal_dart:doc tar -cf - doc/api | tar -xf -
-# Browse:    docker run --rm -p 8080:8080 gdal_dart:doc sh -c \
-#              'dart pub global activate dhttpd && dhttpd --path doc/api --port 8080 --host 0.0.0.0'
+# Generate + extract:
+#   docker build --target doc -t gdal_dart:doc .
+#   docker run --rm gdal_dart:doc > doc-api.tar.gz
 FROM base AS doc
 RUN dart doc
 RUN test -f doc/api/index.html && echo "API docs generated: $(find doc/api -name '*.html' | wc -l) HTML files"
+RUN tar -czf /doc-api.tar.gz doc/api
+ENTRYPOINT ["cat", "/doc-api.tar.gz"]
 
 # Bindings generation.
 FROM bindings-base AS bindings
