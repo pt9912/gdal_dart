@@ -63,9 +63,15 @@ RUN awk -F'[,:]' -v min="$COVERAGE_MIN" '\
     }' coverage/lcov.info
 
 
-# Doc.
+# Doc — generate API documentation into doc/api/.
+#
+# Generate:  docker build --target doc -t gdal_dart:doc .
+# Extract:   docker run --rm gdal_dart:doc tar -cf - doc/api | tar -xf -
+# Browse:    docker run --rm -p 8080:8080 gdal_dart:doc sh -c \
+#              'dart pub global activate dhttpd && dhttpd --path doc/api --port 8080 --host 0.0.0.0'
 FROM base AS doc
 RUN dart doc
+RUN test -f doc/api/index.html && echo "API docs generated: $(find doc/api -name '*.html' | wc -l) HTML files"
 
 # Bindings generation.
 FROM bindings-base AS bindings
