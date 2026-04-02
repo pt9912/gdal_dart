@@ -2,6 +2,33 @@
 
 Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 
+## 0.2.0
+
+### Added
+- **OGR-Vektor-Lesen** — GeoJSON, GeoPackage und Shapefile über eine
+  einheitliche API lesen
+- `Gdal.openVector()` — Format-agnostischer Einstiegspunkt für
+  Vektor-Datasets
+- `VectorDataset` — Layer-Zugriff mit `layerCount`, `layer()`,
+  `layerByName()`
+- `OgrLayer` — Feature-Iteration (lazy via `sync*`), Schema-Zugriff
+  (`fieldDefinitions`), Extent, Spatial Reference
+- `OgrLayer.setSpatialFilterRect()` / `clearSpatialFilter()` —
+  Server-seitige räumliche Filterung über GDAL
+- `OgrLayer.setAttributeFilter()` / `clearAttributeFilter()` —
+  SQL-WHERE-basierte Attribut-Filterung
+- `Feature` — Immutables Dart-Objekt mit `fid`, `attributes` und
+  `geometry`
+- `Geometry` sealed class mit `Point`, `LineString`, `Polygon`,
+  `MultiPoint`, `MultiLineString`, `MultiPolygon`,
+  `GeometryCollection`
+- `OgrFieldType` Enum für OGR-Feldtypen
+- `OgrException` für Vektor-spezifische Fehler
+- Native OGR-Brücke (`gdal_ogr.dart`) mit 30 C-API-Funktionen
+- `coverage-uncovered` Docker-Stage für per-Datei Uncovered-Lines-Report
+- Beispiel: `example/vector_example.dart`
+- Test-Fixtures: `points.geojson`, `mixed_geometries.geojson`
+
 ## 0.1.0
 
 ### Added
