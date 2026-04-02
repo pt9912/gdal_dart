@@ -8,11 +8,11 @@ Lesen, Schreiben und Abfragen von GeoTIFF-Dateien aus Dart — typisiert, mit kl
 
 GDAL muss als Shared Library auf dem System installiert sein:
 
-| Plattform | Paket / Befehl |
-|---|---|
-| Debian / Ubuntu | `sudo apt-get install gdal-bin libgdal-dev` |
-| macOS (Homebrew) | `brew install gdal` |
-| Windows | GDAL-Binaries von [gisinternals.com](https://www.gisinternals.com/) oder OSGeo4W |
+| Plattform        | Paket / Befehl                                                                   |
+| ---------------- | -------------------------------------------------------------------------------- |
+| Debian / Ubuntu  | `sudo apt-get install gdal-bin libgdal-dev`                                      |
+| macOS (Homebrew) | `brew install gdal`                                                              |
+| Windows          | GDAL-Binaries von [gisinternals.com](https://www.gisinternals.com/) oder OSGeo4W |
 
 Alternativ kann der mitgelieferte [`Dockerfile`](Dockerfile) für eine reproduzierbare Umgebung genutzt werden.
 
@@ -76,31 +76,31 @@ Weitere Beispiele:
 
 ## API-Übersicht
 
-| Klasse | Zweck |
-|---|---|
-| `Gdal` | Einstiegspunkt — GDAL initialisieren, Dateien öffnen/erzeugen, CRS erstellen |
-| `GeoTiffDataset` | Lesezugriff — Dimensionen, Projektion, GeoTransform, Bänder |
-| `GeoTiffWriter` | Schreibzugriff — neues GeoTIFF erzeugen, Bänder befüllen |
-| `RasterBand` | Pixeldaten lesen — typisiert (`readAsUint8`, `readAsFloat32`, …), Tile-Zugriff, Overviews |
-| `SpatialReference` | CRS-Objekt — WKT1/WKT2-Export, EPSG-Code, `isSame()`-Vergleich |
-| `CoordinateTransform` | Koordinatentransformation zwischen CRS — `transformPoint()`, `transformPoints()` |
-| `GeoTiffSource` | GeoTIFF-Quelle mit vorberechneten WGS 84 Bounds und Koordinatentransformation |
-| `GeoTransform` | Affine Transformation (6 Koeffizienten) |
-| `RasterDataType` | GDAL-Datentyp-Enum (`byte_`, `uint16`, `float32`, …) |
-| `RasterWindow` | Rechteckiger Raster-Ausschnitt |
-| `GeoTIFFTileProcessor` | Tile-Rendering mit Triangulations-Reprojektion, Colormaps und Elevation |
-| `Triangulation` | Adaptive Triangulation für effiziente Raster-Reprojektion |
-| `ColorStop` / `ColorMapName` | Farbmapping mit vordefinierten Colormaps (viridis, terrain, turbo, …) |
+| Klasse                       | Zweck                                                                                     |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| `Gdal`                       | Einstiegspunkt — GDAL initialisieren, Dateien öffnen/erzeugen, CRS erstellen              |
+| `GeoTiffDataset`             | Lesezugriff — Dimensionen, Projektion, GeoTransform, Bänder                               |
+| `GeoTiffWriter`              | Schreibzugriff — neues GeoTIFF erzeugen, Bänder befüllen                                  |
+| `RasterBand`                 | Pixeldaten lesen — typisiert (`readAsUint8`, `readAsFloat32`, …), Tile-Zugriff, Overviews |
+| `SpatialReference`           | CRS-Objekt — WKT1/WKT2-Export, EPSG-Code, `isSame()`-Vergleich                            |
+| `CoordinateTransform`        | Koordinatentransformation zwischen CRS — `transformPoint()`, `transformPoints()`          |
+| `GeoTiffSource`              | GeoTIFF-Quelle mit vorberechneten WGS 84 Bounds und Koordinatentransformation             |
+| `GeoTransform`               | Affine Transformation (6 Koeffizienten)                                                   |
+| `RasterDataType`             | GDAL-Datentyp-Enum (`byte_`, `uint16`, `float32`, …)                                      |
+| `RasterWindow`               | Rechteckiger Raster-Ausschnitt                                                            |
+| `GeoTIFFTileProcessor`       | Tile-Rendering mit Triangulations-Reprojektion, Colormaps und Elevation                   |
+| `Triangulation`              | Adaptive Triangulation für effiziente Raster-Reprojektion                                 |
+| `ColorStop` / `ColorMapName` | Farbmapping mit vordefinierten Colormaps (viridis, terrain, turbo, …)                     |
 
 ### Exceptions
 
-| Typ | Wann |
-|---|---|
-| `GdalException` | Basis für alle GDAL-Fehler |
-| `GdalLibraryLoadException` | Shared Library nicht gefunden |
-| `GdalFileException` | Datei kann nicht geöffnet/erzeugt werden (mit `.path`) |
-| `GdalIOException` | Lese-/Schreiboperation fehlgeschlagen |
-| `GdalDatasetClosedException` | Zugriff auf geschlossene Ressource |
+| Typ                          | Wann                                                   |
+| ---------------------------- | ------------------------------------------------------ |
+| `GdalException`              | Basis für alle GDAL-Fehler                             |
+| `GdalLibraryLoadException`   | Shared Library nicht gefunden                          |
+| `GdalFileException`          | Datei kann nicht geöffnet/erzeugt werden (mit `.path`) |
+| `GdalIOException`            | Lese-/Schreiboperation fehlgeschlagen                  |
+| `GdalDatasetClosedException` | Zugriff auf geschlossene Ressource                     |
 
 ### Ressourcen-Lebensdauer
 
@@ -118,10 +118,14 @@ Für reproduzierbare Checks gibt es ein [`Dockerfile`](Dockerfile) mit folgenden
 docker build --target analyze .
 docker build --target test .
 docker build --target coverage --no-cache-filter coverage --progress=plain .
+
+docker build --target coverage-uncovered --no-cache-filter coverage-uncovered  --progress=plain -t gdal_dart:uncov . 
+docker run --rm gdal_dart:uncov # uncoverd extrahieren
+
 docker build --target coverage-check --no-cache-filter coverage --progress=plain --build-arg COVERAGE_MIN=95 .
 docker build --target doc -t gdal_dart:doc .
 docker build --target bindings .
-docker build --target publish-check .
+docker build --target publish-check --no-cache-filter publish-check --progress=plain .
 ```
 
 ### API-Dokumentation generieren
