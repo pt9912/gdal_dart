@@ -1,0 +1,72 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "point", "value": 1.5, "active": 1 },
+      "geometry": { "type": "Point", "coordinates": [10.0, 50.0] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "line", "value": 2.5, "active": 0 },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[10.0, 50.0], [11.0, 51.0], [12.0, 50.5]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "polygon", "value": 3.5, "active": 1 },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[10.0, 50.0], [11.0, 50.0], [11.0, 51.0], [10.0, 51.0], [10.0, 50.0]]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "multipoint", "value": 4.5, "active": 1 },
+      "geometry": {
+        "type": "MultiPoint",
+        "coordinates": [[10.0, 50.0], [11.0, 51.0]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "multiline", "value": 5.5, "active": 0 },
+      "geometry": {
+        "type": "MultiLineString",
+        "coordinates": [
+          [[10.0, 50.0], [11.0, 51.0]],
+          [[12.0, 50.0], [13.0, 51.0]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "multipolygon", "value": 6.5, "active": 1 },
+      "geometry": {
+        "type": "MultiPolygon",
+        "coordinates": [
+          [[[10.0, 50.0], [11.0, 50.0], [11.0, 51.0], [10.0, 51.0], [10.0, 50.0]]],
+          [[[12.0, 50.0], [13.0, 50.0], [13.0, 51.0], [12.0, 51.0], [12.0, 50.0]]]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "collection", "value": 7.5, "active": 1 },
+      "geometry": {
+        "type": "GeometryCollection",
+        "geometries": [
+          { "type": "Point", "coordinates": [10.0, 50.0] },
+          { "type": "LineString", "coordinates": [[11.0, 51.0], [12.0, 52.0]] }
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "no_geom", "value": null, "active": null },
+      "geometry": null
+    }
+  ]
+}

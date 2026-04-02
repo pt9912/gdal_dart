@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "name": "München", "population": 1500000 },
+      "geometry": { "type": "Point", "coordinates": [11.58, 48.14] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "name": "Berlin", "population": 3700000 },
+      "geometry": { "type": "Point", "coordinates": [13.40, 52.52] }
+    }
+  ]
+}
