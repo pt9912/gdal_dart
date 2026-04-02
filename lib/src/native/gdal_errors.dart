@@ -44,3 +44,11 @@ class GdalIOException extends GdalException {
   @override
   String toString() => 'GdalIOException: $message';
 }
+
+/// Thrown when an OGR vector operation fails.
+class OgrException extends GdalException {
+  OgrException(super.message);
+
+  @override
+  String toString() => 'OgrException: $message';
+}

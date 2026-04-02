@@ -11,13 +11,28 @@ export 'src/model/color_interpretation.dart' show ColorInterpretation;
 export 'src/model/geo_transform.dart' show GeoTransform;
 export 'src/model/raster_data_type.dart' show RasterDataType;
 export 'src/model/raster_window.dart' show RasterWindow;
+export 'src/model/field_type.dart' show OgrFieldType;
+export 'src/model/geometry.dart'
+    show
+        Geometry,
+        GeometryCollection,
+        GeometryType,
+        LineString,
+        MultiLineString,
+        MultiPoint,
+        MultiPolygon,
+        Point,
+        Polygon;
 export 'src/native/gdal_errors.dart'
     show
         GdalException,
         GdalLibraryLoadException,
         GdalDatasetClosedException,
         GdalFileException,
-        GdalIOException;
+        GdalIOException,
+        OgrException;
+export 'src/ogr_feature.dart' show Feature;
+export 'src/ogr_layer.dart' show OgrLayer;
 export 'src/processing/aabb2d.dart' show Point2D, AffineTransform, AABB2D;
 export 'src/processing/bvh_node2d.dart' show BVHNode2D;
 export 'src/processing/colormap_utils.dart'
@@ -32,3 +47,4 @@ export 'src/processing/triangulation.dart'
     show Triangulation, TransformFunction, TriResult, Bounds, calculateBounds;
 export 'src/raster_band.dart' show RasterBand;
 export 'src/spatial_reference.dart' show SpatialReference;
+export 'src/vector_dataset.dart' show VectorDataset;

@@ -10,8 +10,10 @@ import 'geotiff_writer.dart';
 import 'model/raster_data_type.dart';
 import 'native/gdal_api.dart';
 import 'native/gdal_library.dart';
+import 'native/gdal_ogr.dart';
 import 'native/gdal_srs.dart';
 import 'spatial_reference.dart';
+import 'vector_dataset.dart';
 
 /// Main entry point for GDAL operations.
 ///
@@ -28,6 +30,7 @@ class Gdal {
 
   final GdalApi _api;
   final GdalSrs _srs;
+  final GdalOgr _ogr;
 
   /// Creates a new GDAL instance and registers all drivers.
   ///
@@ -46,7 +49,8 @@ class Gdal {
 
   Gdal._fromLib(DynamicLibrary lib)
       : _api = GdalApi(lib),
-        _srs = GdalSrs(lib) {
+        _srs = GdalSrs(lib),
+        _ogr = GdalOgr(lib) {
     if (!_driversRegistered) {
       _guardedRegister(_api);
       _driversRegistered = true;
@@ -185,5 +189,13 @@ class Gdal {
   GeoTiffSource openGeoTiffSource(String path, {double? nodata}) {
     final dataset = open(path);
     return GeoTiffSource.fromDataset(_srs, dataset, nodata: nodata);
+  }
+
+  /// Opens a vector file (GeoJSON, GeoPackage, Shapefile, etc.) for reading.
+  ///
+  /// Throws [GdalFileException] if the file cannot be opened.
+  /// The returned [VectorDataset] must be closed after use.
+  VectorDataset openVector(String path) {
+    return VectorDataset.open(_api, _ogr, _srs, path);
   }
 }
