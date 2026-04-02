@@ -238,7 +238,30 @@ Ergebnis:
 - GeoTIFF-Metadaten und WGS 84 Bounds stehen als fertiges Objekt bereit
 - Achsenreihenfolge ist konsistent (lon/lat statt lat/lon bei GDAL 3.x)
 
-## Phase 9: Distribution und Developer Experience
+## Phase 9: OGR-Vektorunterstützung — Lesen ✓
+
+Ziel:
+Vektor-Daten aus OGR-unterstützten Formaten (GeoJSON, GeoPackage, Shapefile) lesen.
+
+Umfang:
+
+- Native OGR-Brücke (`gdal_ogr.dart`) mit manuellen `lookupFunction`-Aufrufen
+- Neue Konstante `gdalOfVector` für `GDALOpenEx`
+- `VectorDataset` — öffnet Vektor-Dateien, Layer-Zugriff
+- `OgrLayer` — Feature-Iteration, Schema, Extent, Spatial Reference
+- `Feature` — Immutables Dart-Objekt mit FID, Attributen und Geometrie
+- `Geometry` — Sealed-Class-Hierarchie (Point, LineString, Polygon, Multi-Varianten)
+- `OgrFieldType` — Feldtyp-Enum mit OGR-Mapping
+- `OgrException` — Vektor-spezifische Fehlerklasse
+- Factory-Methode `Gdal.openVector()` als Einstiegspunkt
+- Integrationstests mit GeoJSON-Fixture
+
+Ergebnis:
+
+- Vektor-Daten können gelesen und als Dart-Objekte materialisiert werden
+- GeoJSON funktioniert sofort, GeoPackage und Shapefile mit derselben API
+
+## Phase 10: Distribution und Developer Experience
 
 Ziel:
 Installation, Build und Nutzung auf allen Zielplattformen vereinfachen.
@@ -270,9 +293,12 @@ Alle bisherigen Prioritäten sind umgesetzt:
 8. ~~CRS-Zugriff über OSR-API~~ ✓
 9. ~~Tile-Processing und Reprojektion~~ ✓
 10. ~~Koordinatentransformation und GeoTiffSource~~ ✓
+11. ~~OGR-Vektorunterstützung (Lesen)~~ ✓
 
 Nächste Prioritäten:
 
+- OGR-Vektor-Schreiben
+- Spatial Filter und Attribut-Filter
 - Warping und Resampling über GDAL
 - Async-/Isolate-basierte Parallelität
 - Distribution und Developer Experience
@@ -318,6 +344,12 @@ Nächste Prioritäten:
 - GeoTiffSource mit WGS 84 Bounds
 - Achsenreihenfolge-Fix (OAMS_TRADITIONAL_GIS_ORDER)
 
+### M3d: OGR-Vektor-Lesen ✓
+
+- VectorDataset, OgrLayer, Feature, Geometry
+- GeoJSON-Lesen mit Tests
+- GeoPackage und Shapefile über dieselbe API nutzbar
+
 ### M4: Erstes öffentlich nutzbares Release
 
 - API dokumentiert
@@ -329,6 +361,6 @@ Nächste Prioritäten:
 
 - Unterstützte Minimalversion von GDAL (aktuell getestet mit 3.8.x)
 - Umgang mit fehlender Systeminstallation (gebündelte Binaries vs. reine Systeminstallation)
-- Nur GeoTIFF oder mittelfristig generisches Raster
+- Nur GeoTIFF oder mittelfristig generisches Raster (Vektor-Lesen ist bereits unterstützt)
 - Optionaler `Finalizer` zusätzlich zu explizitem `close()`
 - Async-/Isolate-basierte Parallelität für große Remote-Raster

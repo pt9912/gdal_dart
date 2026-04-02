@@ -1,9 +1,9 @@
-# Architektur: GeoTIFF mit GDAL in Dart
+# Architektur: GDAL in Dart
 
 ## Ziel
 
-Dieses Projekt stellt GeoTIFF-Funktionalität aus GDAL für Dart bereit.
-Es bietet Lesen, Schreiben, CRS-Handling, Koordinatentransformation und Tile-Processing.
+Dieses Projekt stellt GeoTIFF- und OGR-Vektor-Funktionalität aus GDAL für Dart bereit.
+Es bietet Lesen, Schreiben, CRS-Handling, Koordinatentransformation, Tile-Processing und Vektor-Datenzugriff (GeoJSON, GeoPackage, Shapefile).
 Die technische Basis sind:
 
 - `dart:ffi` für den Aufruf der nativen GDAL-C-API
@@ -13,7 +13,7 @@ Die technische Basis sind:
 
 - Keine vollständige Abbildung der gesamten GDAL-API in einer öffentlichen Dart-API
 - Keine direkte Veröffentlichung der durch `ffigen` erzeugten Symbole an Paketnutzer
-- Kein generischer Vektor- oder OGR-Fokus
+- Kein vollständiger OGR-Vektor-Schreibzugriff (Lesen ist unterstützt)
 - Keine komplexe Async- oder Isolate-Architektur im ersten Schritt
 
 ## Architekturprinzipien
@@ -73,6 +73,7 @@ Dateien:
 - `lib/src/native/gdal_library.dart`
 - `lib/src/native/gdal_api.dart`
 - `lib/src/native/gdal_srs.dart`
+- `lib/src/native/gdal_ogr.dart`
 - `lib/src/native/gdal_errors.dart`
 - `lib/src/native/gdal_constants.dart`
 - `lib/src/native/gdal_memory.dart`
@@ -97,6 +98,11 @@ Typen:
 - `BandStatistics` — Min/Max/Mean/StdDev
 - `ColorInterpretation` — Band-Farbinterpretation
 - `GdalException` und Unterklassen
+- `VectorDataset` — Lesezugriff auf OGR-Vektor-Datasets (GeoJSON, GeoPackage, Shapefile)
+- `OgrLayer` — Layer-Zugriff mit Feature-Iteration
+- `Feature` — Immutables Dart-Objekt mit Attributen und Geometrie
+- `Geometry` — Sealed-Class-Hierarchie (Point, LineString, Polygon, Multi-Varianten)
+- `OgrFieldType` — OGR-Feldtyp-Enum
 
 Dateien:
 
@@ -108,6 +114,9 @@ Dateien:
 - `lib/src/coordinate_transform.dart`
 - `lib/src/raster_band.dart`
 - `lib/src/spatial_reference.dart`
+- `lib/src/vector_dataset.dart`
+- `lib/src/ogr_layer.dart`
+- `lib/src/ogr_feature.dart`
 - `lib/src/model/...`
 
 ## Verzeichnisstruktur
@@ -127,6 +136,7 @@ lib/
     native/
       gdal_api.dart
       gdal_srs.dart
+      gdal_ogr.dart
       gdal_errors.dart
       gdal_constants.dart
       gdal_library.dart
@@ -134,13 +144,18 @@ lib/
     model/
       band_statistics.dart
       color_interpretation.dart
+      field_type.dart
       geo_transform.dart
+      geometry.dart
       raster_data_type.dart
       raster_window.dart
     gdal.dart
     geotiff_dataset.dart
     geotiff_writer.dart
     geotiff_source.dart
+    vector_dataset.dart
+    ogr_layer.dart
+    ogr_feature.dart
     coordinate_transform.dart
     raster_band.dart
     spatial_reference.dart
@@ -163,6 +178,7 @@ test/
     multiband_uint16.tif
     tiled.tif
     not_a_tiff.bin
+    points.geojson
   unit/
     processing/
       triangle_test.dart
@@ -185,6 +201,7 @@ test/
     tile_processor_test.dart
     advanced_raster_test.dart
     error_paths_test.dart
+    vector_open_test.dart
 ```
 
 ## Verantwortung der Schichten
@@ -290,6 +307,27 @@ writer.close();
 - Resampled Reads, Tile-/Block-Zugriff, Overviews
 - Statistiken, NoData, Datentyp, Farbinterpretation
 
+`VectorDataset`
+
+- Vektor-Datei öffnen (GeoJSON, GeoPackage, Shapefile, etc.)
+- Layer-Anzahl, Layer nach Index oder Name abrufen
+
+`OgrLayer`
+
+- Layer-Name, Feature-Anzahl, Extent, Spatial Reference
+- Feature nach FID oder per Iteration abrufen
+- Felddefinitionen (Schema) auslesen
+
+`Feature`
+
+- Immutables Dart-Objekt (keine nativen Handles)
+- FID, Attribute als `Map<String, Object?>`, Geometrie
+
+`Geometry` (sealed class)
+
+- Point, LineString, Polygon
+- MultiPoint, MultiLineString, MultiPolygon, GeometryCollection
+
 ## Native Integrationsstrategie
 
 ### Warum die GDAL-C-API
@@ -321,6 +359,19 @@ Die aktuell angebundenen C-Funktionen:
 - `OSRSetAxisMappingStrategy`
 - `OCTNewCoordinateTransformation`, `OCTTransform`, `OCTDestroyCoordinateTransformation`
 - `VSIFree`
+
+OGR-Vektor-API (über `gdal_ogr.dart`):
+
+- `GDALDatasetGetLayerCount`, `GDALDatasetGetLayer`, `GDALDatasetGetLayerByName`
+- `OGR_L_GetName`, `OGR_L_GetFeatureCount`, `OGR_L_GetFeature`, `OGR_L_GetNextFeature`
+- `OGR_L_ResetReading`, `OGR_L_GetLayerDefn`, `OGR_L_GetSpatialRef`, `OGR_L_GetExtent`
+- `OGR_FD_GetFieldCount`, `OGR_FD_GetFieldDefn`
+- `OGR_Fld_GetNameRef`, `OGR_Fld_GetType`
+- `OGR_F_GetFID`, `OGR_F_GetFieldAsInteger`, `OGR_F_GetFieldAsInteger64`
+- `OGR_F_GetFieldAsDouble`, `OGR_F_GetFieldAsString`, `OGR_F_IsFieldSetAndNotNull`
+- `OGR_F_GetGeometryRef`, `OGR_F_Destroy`
+- `OGR_G_GetGeometryType`, `OGR_G_GetPointCount`, `OGR_G_GetX`, `OGR_G_GetY`, `OGR_G_GetZ`
+- `OGR_G_GetGeometryCount`, `OGR_G_GetGeometryRef`
 
 ## Bibliothekslade-Strategie
 
@@ -688,9 +739,13 @@ Umgesetzt:
 6. Koordinatentransformation (OCT API)
 7. GeoTiffSource mit WGS 84 Bounds
 8. Triangulationsbasierte Tile-Reprojektion und Rendering
+9. OGR-Vektor-Lesen (GeoJSON, GeoPackage, Shapefile)
 
 Mögliche nächste Schritte:
 
+- OGR-Vektor-Schreiben
+- Spatial Filter und Attribut-Filter auf Layern
+- GeoPackage-Raster-Zugriff
 - Warping und Resampling über GDAL
 - Mehr GDAL-Treiber (NetCDF, JPEG2000, …)
 - Async-/Isolate-basierte Parallelität
