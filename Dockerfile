@@ -46,6 +46,19 @@ RUN dart pub global run coverage:format_coverage \
     --in=coverage \
     --out=coverage/lcov.info
 RUN lcov --summary coverage/lcov.info    
+ENTRYPOINT ["cat", "coverage/lcov.info"]
+
+FROM coverage AS coverage-uncovered
+RUN awk -F'[,:]' '\
+    /^SF:/ { file=substr($0,4) } \
+    /^DA:/ { total[file]++; if ($3 > 0) hit[file]++; else uncov[file]=uncov[file] " " $2 } \
+    END { for (f in total) { \
+    h=hit[f]+0; t=total[f]; \
+    printf "%.1f%% (%d/%d) %s\n", (h/t)*100, h, t, f; \
+    if (h < t) printf "  uncovered lines:%s\n", uncov[f]; \
+    } }' coverage/lcov.info | sort -t'%' -k1 -n >uncovered.txt
+ENTRYPOINT ["cat", "uncovered.txt"]
+
 
 # Coverage threshold check.
 FROM coverage AS coverage-check
