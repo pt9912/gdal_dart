@@ -1,8 +1,8 @@
 # gdal_dart
 
-Dart-FFI-Paket für GeoTIFF-Funktionalität auf Basis von GDAL.
+Dart-FFI-Paket für Raster- und Vektor-Geodaten auf Basis von GDAL.
 
-Lesen, Schreiben und Abfragen von GeoTIFF-Dateien aus Dart — typisiert, mit klar gekapselter nativer Schicht.
+Lesen, Schreiben und Abfragen von GeoTIFF-Dateien sowie Lesen von Vektor-Formaten (GeoJSON, GeoPackage, Shapefile) aus Dart — typisiert, mit klar gekapselter nativer Schicht.
 
 ## Voraussetzungen
 
@@ -66,6 +66,32 @@ void main() {
   srs.close();
   writer.writeAsUint8(1, Uint8List(256 * 256));
   writer.close(); // Pflicht — schreibt Daten auf Disk
+
+  // --- Vektor-Daten lesen ---
+  final ds = gdal.openVector('places.geojson');
+  final layer = ds.layer(0);
+  print('Layer: ${layer.name}, ${layer.featureCount} Features');
+
+  for (final f in layer.features) {
+    final geom = f.geometry as Point;
+    print('${f.attributes['name']}: ${geom.x}, ${geom.y}');
+  }
+
+  // Räumlicher Filter
+  layer.setSpatialFilterRect(11.0, 47.0, 12.0, 49.0);
+  for (final f in layer.features) {
+    print('Gefiltert: ${f.attributes['name']}');
+  }
+  layer.clearSpatialFilter();
+
+  // Attribut-Filter
+  layer.setAttributeFilter('population > 1000000');
+  for (final f in layer.features) {
+    print('Großstadt: ${f.attributes['name']}');
+  }
+  layer.clearAttributeFilter();
+
+  ds.close();
 }
 ```
 
@@ -73,6 +99,7 @@ Weitere Beispiele:
 
 - [`example/gdal_dart_example.dart`](example/gdal_dart_example.dart) — Lesen, Schreiben, CRS
 - [`example/tile_processing_example.dart`](example/tile_processing_example.dart) — Tile-Rendering mit Reprojektion, Colormaps, Elevation
+- [`example/vector_example.dart`](example/vector_example.dart) — Vektor-Daten lesen mit Iteration, Spatial- und Attribut-Filter
 
 ## API-Übersicht
 
@@ -91,6 +118,11 @@ Weitere Beispiele:
 | `GeoTIFFTileProcessor`       | Tile-Rendering mit Triangulations-Reprojektion, Colormaps und Elevation                   |
 | `Triangulation`              | Adaptive Triangulation für effiziente Raster-Reprojektion                                 |
 | `ColorStop` / `ColorMapName` | Farbmapping mit vordefinierten Colormaps (viridis, terrain, turbo, …)                     |
+| `VectorDataset`              | Vektor-Lesezugriff — Layer-Zugriff (`layerCount`, `layer()`, `layerByName()`)             |
+| `OgrLayer`                   | Feature-Iteration, Schema (`fieldDefinitions`), Extent, Spatial/Attribut-Filter           |
+| `Feature`                    | Immutables Feature-Objekt — `fid`, `attributes`, `geometry`                               |
+| `Geometry`                   | Sealed class — `Point`, `LineString`, `Polygon`, `Multi…`, `GeometryCollection`           |
+| `OgrFieldType`               | OGR-Feldtyp-Enum (`integer`, `real`, `string`, `date`, `dateTime`, …)                     |
 
 ### Exceptions
 
@@ -101,14 +133,16 @@ Weitere Beispiele:
 | `GdalFileException`          | Datei kann nicht geöffnet/erzeugt werden (mit `.path`) |
 | `GdalIOException`            | Lese-/Schreiboperation fehlgeschlagen                  |
 | `GdalDatasetClosedException` | Zugriff auf geschlossene Ressource                     |
+| `OgrException`               | Vektor-Operation fehlgeschlagen (Layer, Feature, Filter) |
 
 ### Ressourcen-Lebensdauer
 
-`GeoTiffDataset`, `GeoTiffWriter`, `SpatialReference`, `CoordinateTransform` und `GeoTiffSource` besitzen native Handles.
+`GeoTiffDataset`, `GeoTiffWriter`, `SpatialReference`, `CoordinateTransform`, `GeoTiffSource` und `VectorDataset` besitzen native Handles.
 Jede Instanz **muss** mit `close()` freigegeben werden.
 `close()` ist idempotent.
 Bei `GeoTiffWriter` ist `close()` Pflicht, da erst dort Daten auf Disk geflusht werden.
 `GeoTiffSource.close()` schließt alle internen Ressourcen (Dataset, Transform, SpatialReferences).
+`Feature` und `Geometry` sind reine Dart-Objekte ohne native Handles und brauchen kein `close()`.
 
 ## Entwicklung
 
