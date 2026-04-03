@@ -2,6 +2,18 @@
 
 Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 
+## 0.2.3
+
+### Added
+- `Gdal.getOrCreateWKT()` — per-Isolate WKT-Cache mit Authority-Key
+  (z.B. `"EPSG:4326"`), vermeidet wiederholte `proj.db`-Lookups
+- Windows-Mutex-Guard (`CreateMutexW`) für thread-sichere
+  Treiberregistrierung auf Windows
+
+### Fixed
+- POSIX `_flockGuardedRegister` wirft bei `fd < 0` statt `allRegister()`
+  direkt aufzurufen — verhindert potentiellen Doppelaufruf
+
 ## 0.2.2
 
 ### Added
