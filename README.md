@@ -137,11 +137,13 @@ Weitere Beispiele:
 
 ### Ressourcen-Lebensdauer
 
-`GeoTiffDataset`, `GeoTiffWriter`, `SpatialReference`, `CoordinateTransform`, `GeoTiffSource` und `VectorDataset` besitzen native Handles.
-Jede Instanz **muss** mit `close()` freigegeben werden.
-`close()` ist idempotent.
-Bei `GeoTiffWriter` ist `close()` Pflicht, da erst dort Daten auf Disk geflusht werden.
-`GeoTiffSource.close()` schließt alle internen Ressourcen (Dataset, Transform, SpatialReferences).
+Folgende Klassen besitzen native Handles und **müssen** mit `close()` freigegeben werden:
+
+- `GeoTiffDataset`, `GeoTiffWriter`, `SpatialReference`, `CoordinateTransform`, `GeoTiffSource`, `VectorDataset`
+- `close()` ist bei allen idempotent
+- `GeoTiffWriter`: `close()` ist Pflicht, da erst dort Daten auf Disk geflusht werden
+- `GeoTiffSource.close()`: schließt alle internen Ressourcen (Dataset, Transform, SpatialReferences)
+
 `Feature` und `Geometry` sind reine Dart-Objekte ohne native Handles und brauchen kein `close()`.
 
 ## Entwicklung
