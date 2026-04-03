@@ -60,9 +60,8 @@ class Gdal {
   /// Registers GDAL drivers with cross-isolate thread safety.
   ///
   /// On POSIX systems, uses BSD file locking (`flock`) via FFI to serialize
-  /// concurrent `GDALAllRegister` calls. Unlike POSIX `fcntl` locks (used by
-  /// Dart's `lockSync`), `flock` locks are per-file-description and block
-  /// across threads within the same process.
+  /// concurrent `GDALAllRegister` calls. On Windows, uses a named kernel32
+  /// mutex. On other platforms, falls back to unguarded registration.
   static void _guardedRegister(GdalApi api) {
     if (Platform.isLinux || Platform.isMacOS) {
       try {
@@ -71,8 +70,12 @@ class Gdal {
       } catch (_) {
         // FFI locking unavailable — fall through to unguarded call.
       }
+      api.allRegister();
+    } else if (Platform.isWindows) {
+      _mutexGuardedRegister(api);
+    } else {
+      api.allRegister();
     }
-    api.allRegister();
   }
 
   static void _flockGuardedRegister(GdalApi api) {
@@ -93,8 +96,7 @@ class Gdal {
     malloc.free(pathPtr);
 
     if (fd < 0) {
-      api.allRegister();
-      return;
+      throw StateError('Could not open lock file');
     }
 
     nativeFlock(fd, 2 /* LOCK_EX */);
@@ -103,6 +105,43 @@ class Gdal {
     } finally {
       nativeFlock(fd, 8 /* LOCK_UN */);
       nativeClose(fd);
+    }
+  }
+
+  /// Windows: uses a named kernel32 mutex to serialize `GDALAllRegister`.
+  static void _mutexGuardedRegister(GdalApi api) {
+    final kernel32 = DynamicLibrary.open('kernel32.dll');
+
+    final createMutex = kernel32.lookupFunction<
+        Pointer<Void> Function(Pointer<Void>, Int32, Pointer<Utf16>),
+        Pointer<Void> Function(
+            Pointer<Void>, int, Pointer<Utf16>)>('CreateMutexW');
+    final waitForSingleObject = kernel32.lookupFunction<
+        Uint32 Function(Pointer<Void>, Uint32),
+        int Function(Pointer<Void>, int)>('WaitForSingleObject');
+    final releaseMutex = kernel32.lookupFunction<
+        Int32 Function(Pointer<Void>),
+        int Function(Pointer<Void>)>('ReleaseMutex');
+    final closeHandle = kernel32.lookupFunction<
+        Int32 Function(Pointer<Void>),
+        int Function(Pointer<Void>)>('CloseHandle');
+
+    final namePtr = 'Global\\GdalDartInitLock'.toNativeUtf16();
+    try {
+      final mutex = createMutex(nullptr, 0, namePtr);
+      if (mutex != nullptr) {
+        waitForSingleObject(mutex, 0xFFFFFFFF /* INFINITE */);
+        try {
+          api.allRegister();
+        } finally {
+          releaseMutex(mutex);
+          closeHandle(mutex);
+        }
+      } else {
+        api.allRegister();
+      }
+    } finally {
+      malloc.free(namePtr);
     }
   }
 
