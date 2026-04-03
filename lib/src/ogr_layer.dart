@@ -3,6 +3,7 @@ import 'dart:ffi';
 import 'package:ffi/ffi.dart';
 
 import 'model/field_type.dart';
+import 'model/geometry.dart';
 import 'native/gdal_errors.dart';
 import 'native/gdal_memory.dart';
 import 'native/gdal_ogr.dart';
@@ -51,6 +52,14 @@ class OgrLayer {
   String get name {
     _ensureDatasetOpen();
     return _ogr.getLayerName(_handle);
+  }
+
+  /// The geometry type of the layer, or `null` if unknown.
+  GeometryType? get geometryType {
+    _ensureDatasetOpen();
+    final defnHandle = _ogr.getLayerDefn(_handle);
+    final ogrType = _ogr.getGeomType(defnHandle);
+    return GeometryType.fromOgr(ogrType);
   }
 
   /// The number of features in the layer.

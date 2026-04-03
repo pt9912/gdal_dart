@@ -78,6 +78,11 @@ void main() {
         expect(point.y, closeTo(48.14, 0.01));
       });
 
+      test('layer geometryType is point', () {
+        final layer = ds.layer(0);
+        expect(layer.geometryType, GeometryType.point);
+      });
+
       test('layer spatial reference is WGS 84', () {
         final layer = ds.layer(0);
         final srs = layer.spatialReference;

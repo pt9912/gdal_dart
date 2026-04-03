@@ -72,6 +72,9 @@ typedef _FDGetFieldDefnC = Pointer<Void> Function(
 typedef _FDGetFieldDefnDart = Pointer<Void> Function(
     Pointer<Void> defn, int index);
 
+typedef _FDGetGeomTypeC = Int32 Function(Pointer<Void> defn);
+typedef _FDGetGeomTypeDart = int Function(Pointer<Void> defn);
+
 // --- FieldDefn ---
 
 typedef _FldGetNameRefC = Pointer<Utf8> Function(Pointer<Void> fieldDefn);
@@ -167,6 +170,7 @@ class GdalOgr {
   // FeatureDefn
   late final _FDGetFieldCountDart _fdGetFieldCount;
   late final _FDGetFieldDefnDart _fdGetFieldDefn;
+  late final _FDGetGeomTypeDart _fdGetGeomType;
 
   // FieldDefn
   late final _FldGetNameRefDart _fldGetNameRef;
@@ -241,6 +245,9 @@ class GdalOgr {
     _fdGetFieldDefn =
         lib.lookupFunction<_FDGetFieldDefnC, _FDGetFieldDefnDart>(
             'OGR_FD_GetFieldDefn');
+    _fdGetGeomType =
+        lib.lookupFunction<_FDGetGeomTypeC, _FDGetGeomTypeDart>(
+            'OGR_FD_GetGeomType');
 
     // FieldDefn
     _fldGetNameRef =
@@ -362,6 +369,9 @@ class GdalOgr {
   /// Returns the field definition handle at [index]. Borrowed — do not free.
   Pointer<Void> getFieldDefn(Pointer<Void> defn, int index) =>
       _fdGetFieldDefn(defn, index);
+
+  /// Returns the OGRwkbGeometryType of the feature definition as an integer.
+  int getGeomType(Pointer<Void> defn) => _fdGetGeomType(defn);
 
   // --- FieldDefn ---
 
