@@ -37,6 +37,41 @@ void main() {
       test('getConfigOption returns null for unset key', () {
         expect(gdal.getConfigOption('GDAL_DART_NONEXISTENT_KEY'), isNull);
       });
+
+      group('getOrCreateWKT', () {
+        test('returns valid WKT for EPSG:4326', () {
+          final wkt = gdal.getOrCreateWKT('EPSG:4326');
+          expect(wkt, contains('GEOGCS'));
+        });
+
+        test('returns cached result on second call', () {
+          final wkt1 = gdal.getOrCreateWKT('EPSG:32632');
+          final wkt2 = gdal.getOrCreateWKT('EPSG:32632');
+          expect(identical(wkt1, wkt2), isTrue);
+        });
+
+        test('cached WKT creates valid SpatialReference', () {
+          final wkt = gdal.getOrCreateWKT('EPSG:4326');
+          final srs = gdal.spatialReferenceFromWkt(wkt);
+          expect(srs.authorityCode, '4326');
+          srs.close();
+        });
+
+        test('throws on invalid format', () {
+          expect(() => gdal.getOrCreateWKT('4326'),
+              throwsA(isA<ArgumentError>()));
+        });
+
+        test('throws on unsupported authority', () {
+          expect(() => gdal.getOrCreateWKT('CUSTOM:999'),
+              throwsA(isA<ArgumentError>()));
+        });
+
+        test('throws on invalid EPSG code', () {
+          expect(() => gdal.getOrCreateWKT('EPSG:abc'),
+              throwsA(isA<ArgumentError>()));
+        });
+      });
     },
   );
 

@@ -27,6 +27,7 @@ import 'vector_dataset.dart';
 /// ```
 class Gdal {
   static bool _driversRegistered = false;
+  static final Map<String, String> _wktCache = {};
 
   final GdalApi _api;
   final GdalSrs _srs;
@@ -210,6 +211,50 @@ class Gdal {
       dataType: dataType,
       options: options,
     );
+  }
+
+  /// Returns the WKT for an authority key, using a per-isolate cache.
+  ///
+  /// The [key] must be in the format `"AUTHORITY:CODE"` (e.g.,
+  /// `"EPSG:4326"`). On cache miss, creates a temporary
+  /// [SpatialReference] via GDAL, extracts the WKT, and caches it.
+  ///
+  /// Currently only `EPSG` authorities are supported for automatic
+  /// resolution. For other authorities, use [spatialReferenceFromWkt]
+  /// directly.
+  ///
+  /// ```dart
+  /// final wkt = gdal.getOrCreateWKT('EPSG:4326');
+  /// final srs = gdal.spatialReferenceFromWkt(wkt);
+  /// ```
+  String getOrCreateWKT(String key) {
+    final cached = _wktCache[key];
+    if (cached != null) return cached;
+
+    final parts = key.split(':');
+    if (parts.length != 2) {
+      throw ArgumentError('Expected "AUTHORITY:CODE" format, got "$key"');
+    }
+    final authority = parts[0].toUpperCase();
+    final code = parts[1];
+
+    if (authority != 'EPSG') {
+      throw ArgumentError('Unsupported authority "$authority" — '
+          'only EPSG is supported for automatic resolution');
+    }
+    final epsg = int.tryParse(code);
+    if (epsg == null) {
+      throw ArgumentError('Invalid EPSG code "$code"');
+    }
+
+    final srs = SpatialReference.fromEpsg(_srs, epsg);
+    try {
+      final wkt = srs.toWkt();
+      _wktCache[key] = wkt;
+      return wkt;
+    } finally {
+      srs.close();
+    }
   }
 
   /// Creates a [SpatialReference] from an EPSG code (e.g., 4326).
