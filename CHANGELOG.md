@@ -2,6 +2,16 @@
 
 Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 
+## 0.2.1
+
+### Added
+- `OgrLayer.geometryType` — gibt den Geometrie-Typ des Layers zurück
+  (via `OGR_FD_GetGeomType`)
+
+### Fixed
+- README vollständig auf 0.2.0 aktualisiert: Vektor-Quick-Start,
+  API-Übersicht, Beispiele, Exceptions, Ressourcen-Lebensdauer
+
 ## 0.2.0
 
 ### Added
