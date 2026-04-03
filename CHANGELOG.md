@@ -2,6 +2,13 @@
 
 Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 
+## 0.2.2
+
+### Added
+- `Gdal.setConfigOption()` / `Gdal.getConfigOption()` —
+  GDAL-Konfigurationsoptionen lesen und setzen
+  (via `CPLSetConfigOption` / `CPLGetConfigOption`)
+
 ## 0.2.1
 
 ### Added

@@ -115,6 +115,21 @@ class Gdal {
   /// The number of registered GDAL drivers.
   int get driverCount => _api.getDriverCount();
 
+  /// Sets a GDAL configuration option (`CPLSetConfigOption`).
+  ///
+  /// Pass `null` for [value] to unset the option.
+  ///
+  /// ```dart
+  /// gdal.setConfigOption('GDAL_CACHEMAX', '512');
+  /// ```
+  void setConfigOption(String key, String? value) =>
+      _api.setConfigOption(key, value);
+
+  /// Reads a GDAL configuration option (`CPLGetConfigOption`).
+  ///
+  /// Returns `null` if the option is not set.
+  String? getConfigOption(String key) => _api.getConfigOption(key);
+
   /// Opens any GDAL-supported raster file for reading.
   ///
   /// Works with GeoTIFF, JPEG, PNG, NetCDF, and all other formats

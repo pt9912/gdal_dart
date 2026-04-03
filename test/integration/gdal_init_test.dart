@@ -25,6 +25,18 @@ void main() {
       test('has registered drivers', () {
         expect(gdal.driverCount, greaterThan(0));
       });
+
+      test('setConfigOption and getConfigOption round-trip', () {
+        gdal.setConfigOption('GDAL_DART_TEST_KEY', '42');
+        expect(gdal.getConfigOption('GDAL_DART_TEST_KEY'), '42');
+        // Unset
+        gdal.setConfigOption('GDAL_DART_TEST_KEY', null);
+        expect(gdal.getConfigOption('GDAL_DART_TEST_KEY'), isNull);
+      });
+
+      test('getConfigOption returns null for unset key', () {
+        expect(gdal.getConfigOption('GDAL_DART_NONEXISTENT_KEY'), isNull);
+      });
     },
   );
 

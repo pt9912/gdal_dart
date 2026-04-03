@@ -15,6 +15,16 @@ typedef _VersionInfoDart = Pointer<Utf8> Function(Pointer<Utf8> request);
 typedef _GetDriverCountC = Int32 Function();
 typedef _GetDriverCountDart = int Function();
 
+typedef _SetConfigOptionC = Void Function(
+    Pointer<Utf8> key, Pointer<Utf8> value);
+typedef _SetConfigOptionDart = void Function(
+    Pointer<Utf8> key, Pointer<Utf8> value);
+
+typedef _GetConfigOptionC = Pointer<Utf8> Function(
+    Pointer<Utf8> key, Pointer<Utf8> defaultValue);
+typedef _GetConfigOptionDart = Pointer<Utf8> Function(
+    Pointer<Utf8> key, Pointer<Utf8> defaultValue);
+
 // --- Phase 2: Dataset open/close & metadata ---
 
 typedef _OpenExC = Pointer<Void> Function(
@@ -201,6 +211,8 @@ class GdalApi {
   late final _AllRegisterDart _allRegister;
   late final _VersionInfoDart _versionInfo;
   late final _GetDriverCountDart _getDriverCount;
+  late final _SetConfigOptionDart _setConfigOption;
+  late final _GetConfigOptionDart _getConfigOption;
 
   // Phase 2
   late final _OpenExDart _openEx;
@@ -247,6 +259,12 @@ class GdalApi {
         .lookupFunction<_VersionInfoC, _VersionInfoDart>('GDALVersionInfo');
     _getDriverCount = lib.lookupFunction<_GetDriverCountC, _GetDriverCountDart>(
         'GDALGetDriverCount');
+    _setConfigOption =
+        lib.lookupFunction<_SetConfigOptionC, _SetConfigOptionDart>(
+            'CPLSetConfigOption');
+    _getConfigOption =
+        lib.lookupFunction<_GetConfigOptionC, _GetConfigOptionDart>(
+            'CPLGetConfigOption');
 
     // Phase 2
     _openEx = lib.lookupFunction<_OpenExC, _OpenExDart>('GDALOpenEx');
@@ -345,6 +363,32 @@ class GdalApi {
 
   /// Returns the number of registered GDAL drivers.
   int getDriverCount() => _getDriverCount();
+
+  /// Sets a GDAL configuration option (CPLSetConfigOption).
+  ///
+  /// Pass `null` for [value] to unset the option.
+  void setConfigOption(String key, String? value) {
+    withNativeString(key, (keyPtr) {
+      if (value == null) {
+        _setConfigOption(keyPtr, nullptr);
+      } else {
+        withNativeString(value, (valuePtr) {
+          _setConfigOption(keyPtr, valuePtr);
+        });
+      }
+    });
+  }
+
+  /// Reads a GDAL configuration option (CPLGetConfigOption).
+  ///
+  /// Returns `null` if the option is not set.
+  String? getConfigOption(String key) {
+    return withNativeString(key, (keyPtr) {
+      final ptr = _getConfigOption(keyPtr, nullptr);
+      if (ptr == nullptr) return null;
+      return ptr.toDartString();
+    });
+  }
 
   // --- Phase 2 ---
 
