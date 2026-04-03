@@ -92,6 +92,19 @@ void main() {
   layer.clearAttributeFilter();
 
   ds.close();
+
+  // --- Konfiguration ---
+  gdal.setConfigOption('GDAL_CACHEMAX', '512');
+  print('Cache: ${gdal.getConfigOption('GDAL_CACHEMAX')}');
+
+  // --- WKT-Cache ---
+  final wkt = gdal.getOrCreateWKT('EPSG:4326');
+  print('WKT (cached): ${wkt.substring(0, 30)}…');
+
+  // --- CRS-Metadaten ---
+  final info = gdal.getCRSInfo('EPSG:4326');
+  print('${info.name}, ${info.type}'); // WGS 84, geographic2D
+  print('Gebiet: ${info.areaName}');
 }
 ```
 
@@ -105,7 +118,7 @@ Weitere Beispiele:
 
 | Klasse                       | Zweck                                                                                     |
 | ---------------------------- | ----------------------------------------------------------------------------------------- |
-| `Gdal`                       | Einstiegspunkt — GDAL initialisieren, Dateien öffnen/erzeugen, CRS erstellen              |
+| `Gdal`                       | Einstiegspunkt — GDAL initialisieren, Dateien öffnen/erzeugen, CRS, Config, CRS-Info      |
 | `GeoTiffDataset`             | Lesezugriff — Dimensionen, Projektion, GeoTransform, Bänder                               |
 | `GeoTiffWriter`              | Schreibzugriff — neues GeoTIFF erzeugen, Bänder befüllen                                  |
 | `RasterBand`                 | Pixeldaten lesen — typisiert (`readAsUint8`, `readAsFloat32`, …), Tile-Zugriff, Overviews |
@@ -123,6 +136,8 @@ Weitere Beispiele:
 | `Feature`                    | Immutables Feature-Objekt — `fid`, `attributes`, `geometry`                               |
 | `Geometry`                   | Sealed class — `Point`, `LineString`, `Polygon`, `Multi…`, `GeometryCollection`           |
 | `OgrFieldType`               | OGR-Feldtyp-Enum (`integer`, `real`, `string`, `date`, `dateTime`, …)                     |
+| `CrsInfo`                    | Immutable CRS-Metadaten — Name, Typ, Bounding Box, Projektionsmethode (per-Isolate Cache) |
+| `CrsType`                    | CRS-Typ-Enum (`geographic2D`, `geographic3D`, `projected`, `vertical`, …)                 |
 
 ### Exceptions
 
@@ -144,7 +159,7 @@ Folgende Klassen besitzen native Handles und **müssen** mit `close()` freigegeb
 - `GeoTiffWriter`: `close()` ist Pflicht, da erst dort Daten auf Disk geflusht werden
 - `GeoTiffSource.close()`: schließt alle internen Ressourcen (Dataset, Transform, SpatialReferences)
 
-`Feature` und `Geometry` sind reine Dart-Objekte ohne native Handles und brauchen kein `close()`.
+`Feature`, `Geometry` und `CrsInfo` sind reine Dart-Objekte ohne native Handles und brauchen kein `close()`.
 
 ## Entwicklung
 
