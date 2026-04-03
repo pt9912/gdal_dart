@@ -1,6 +1,6 @@
 name: gdal_dart
 description: Dart FFI package for raster and vector geodata based on GDAL.
-version: 0.2.3
+version: 0.2.4
 repository: https://github.com/pt9912/gdal_dart
 
 environment:

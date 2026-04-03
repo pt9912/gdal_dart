@@ -2,6 +2,8 @@ import 'dart:ffi';
 
 import 'package:ffi/ffi.dart';
 
+import '../model/crs_info.dart';
+import 'gdal_errors.dart';
 import 'gdal_memory.dart';
 
 // OSRNewSpatialReference(const char*) → OGRSpatialReferenceH
@@ -76,8 +78,53 @@ typedef _OctTransformDart = int Function(Pointer<Void> ct, int count,
 typedef _CplFreeC = Void Function(Pointer<Void> ptr);
 typedef _CplFreeDart = void Function(Pointer<Void> ptr);
 
+// OSRGetCRSInfoListFromDatabase(const char*, const void*, int*) → OSRCRSInfo**
+typedef _GetCRSInfoListC = Pointer<Pointer<_NativeOSRCRSInfo>> Function(
+    Pointer<Utf8> authName, Pointer<Void> params, Pointer<Int32> count);
+typedef _GetCRSInfoListDart = Pointer<Pointer<_NativeOSRCRSInfo>> Function(
+    Pointer<Utf8> authName, Pointer<Void> params, Pointer<Int32> count);
+
+// OSRDestroyCRSInfoList(OSRCRSInfo**)
+typedef _DestroyCRSInfoListC = Void Function(
+    Pointer<Pointer<_NativeOSRCRSInfo>> list);
+typedef _DestroyCRSInfoListDart = void Function(
+    Pointer<Pointer<_NativeOSRCRSInfo>> list);
+
+/// Native layout of OSRCRSInfo (GDAL >= 3.0).
+final class _NativeOSRCRSInfo extends Struct {
+  external Pointer<Utf8> pszAuthName;
+  external Pointer<Utf8> pszCode;
+  external Pointer<Utf8> pszName;
+
+  @Int32()
+  external int eType;
+
+  @Int32()
+  external int bDeprecated;
+
+  @Int32()
+  external int bBboxValid;
+
+  @Double()
+  external double dfWestLongitudeDeg;
+
+  @Double()
+  external double dfSouthLatitudeDeg;
+
+  @Double()
+  external double dfEastLongitudeDeg;
+
+  @Double()
+  external double dfNorthLatitudeDeg;
+
+  external Pointer<Utf8> pszAreaName;
+  external Pointer<Utf8> pszProjectionMethodName;
+}
+
 /// Low-level access to GDAL OGR Spatial Reference (OSR) API functions.
 class GdalSrs {
+  final DynamicLibrary _lib;
+
   late final _NewDart _new;
   late final _DestroyDart _destroy;
   late final _ImportFromEpsgDart _importFromEpsg;
@@ -92,7 +139,15 @@ class GdalSrs {
   late final _OctTransformDart _octTransform;
   late final _CplFreeDart _cplFree;
 
-  GdalSrs(DynamicLibrary lib) {
+  // Lazy lookups for GDAL >= 3.0 symbols (not resolved in constructor).
+  late final _GetCRSInfoListDart _getCRSInfoList = _lib
+      .lookupFunction<_GetCRSInfoListC, _GetCRSInfoListDart>(
+          'OSRGetCRSInfoListFromDatabase');
+  late final _DestroyCRSInfoListDart _destroyCRSInfoList = _lib
+      .lookupFunction<_DestroyCRSInfoListC, _DestroyCRSInfoListDart>(
+          'OSRDestroyCRSInfoList');
+
+  GdalSrs(DynamicLibrary lib) : _lib = lib {
     _new = lib.lookupFunction<_NewC, _NewDart>('OSRNewSpatialReference');
     _destroy = lib
         .lookupFunction<_DestroyC, _DestroyDart>('OSRDestroySpatialReference');
@@ -187,4 +242,60 @@ class GdalSrs {
 
   /// Frees memory allocated by GDAL (e.g., exported WKT strings).
   void cplFree(Pointer<Void> ptr) => _cplFree(ptr);
+
+  /// Returns all CRS entries for [authName] from the PROJ database.
+  ///
+  /// Requires GDAL >= 3.0. Throws [GdalException] if the native
+  /// symbols are not available.
+  List<CrsInfo> getCRSInfoList(String authName) {
+    final _GetCRSInfoListDart getCRSInfoListFn;
+    final _DestroyCRSInfoListDart destroyCRSInfoListFn;
+    try {
+      getCRSInfoListFn = _getCRSInfoList;
+      destroyCRSInfoListFn = _destroyCRSInfoList;
+    } on ArgumentError {
+      throw GdalException(
+          'OSRGetCRSInfoListFromDatabase not available — '
+          'requires GDAL >= 3.0');
+    }
+
+    final countPtr = calloc<Int32>();
+    Pointer<Pointer<_NativeOSRCRSInfo>> list = nullptr;
+    try {
+      list = withNativeString(authName, (namePtr) {
+        return getCRSInfoListFn(namePtr, nullptr, countPtr);
+      });
+      final count = countPtr.value;
+      return [
+        for (int i = 0; i < count; i++)
+          _materializeCrsInfo(list[i].ref),
+      ];
+    } finally {
+      calloc.free(countPtr);
+      if (list != nullptr) destroyCRSInfoListFn(list);
+    }
+  }
+
+  static CrsInfo _materializeCrsInfo(_NativeOSRCRSInfo native) {
+    final bboxValid = native.bBboxValid != 0;
+    return CrsInfo(
+      authName: readNativeString(native.pszAuthName),
+      code: readNativeString(native.pszCode),
+      name: readNativeString(native.pszName),
+      type: CrsType.fromOgr(native.eType),
+      deprecated: native.bDeprecated != 0,
+      westLon: bboxValid ? native.dfWestLongitudeDeg : null,
+      southLat: bboxValid ? native.dfSouthLatitudeDeg : null,
+      eastLon: bboxValid ? native.dfEastLongitudeDeg : null,
+      northLat: bboxValid ? native.dfNorthLatitudeDeg : null,
+      areaName: _readOptionalString(native.pszAreaName),
+      projectionMethod: _readOptionalString(native.pszProjectionMethodName),
+    );
+  }
+
+  static String? _readOptionalString(Pointer<Utf8> ptr) {
+    if (ptr == nullptr) return null;
+    final s = ptr.toDartString();
+    return s.isEmpty ? null : s;
+  }
 }

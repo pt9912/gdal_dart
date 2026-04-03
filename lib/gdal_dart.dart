@@ -8,6 +8,7 @@ export 'src/geotiff_source.dart' show GeoTiffSource, Bounds4;
 export 'src/geotiff_writer.dart' show GeoTiffWriter;
 export 'src/model/band_statistics.dart' show BandStatistics;
 export 'src/model/color_interpretation.dart' show ColorInterpretation;
+export 'src/model/crs_info.dart' show CrsInfo, CrsType;
 export 'src/model/geo_transform.dart' show GeoTransform;
 export 'src/model/raster_data_type.dart' show RasterDataType;
 export 'src/model/raster_window.dart' show RasterWindow;

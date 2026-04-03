@@ -7,8 +7,10 @@ import 'coordinate_transform.dart';
 import 'geotiff_dataset.dart';
 import 'geotiff_source.dart';
 import 'geotiff_writer.dart';
+import 'model/crs_info.dart';
 import 'model/raster_data_type.dart';
 import 'native/gdal_api.dart';
+import 'native/gdal_errors.dart';
 import 'native/gdal_library.dart';
 import 'native/gdal_ogr.dart';
 import 'native/gdal_srs.dart';
@@ -28,6 +30,8 @@ import 'vector_dataset.dart';
 class Gdal {
   static bool _driversRegistered = false;
   static final Map<String, String> _wktCache = {};
+  static final Map<String, CrsInfo> _crsInfoCache = {};
+  static bool _crsInfoLoaded = false;
 
   final GdalApi _api;
   final GdalSrs _srs;
@@ -255,6 +259,57 @@ class Gdal {
     } finally {
       srs.close();
     }
+  }
+
+  /// Returns CRS metadata for an authority key, using a per-isolate cache.
+  ///
+  /// The [key] must be in the format `"AUTHORITY:CODE"` (e.g.,
+  /// `"EPSG:4326"`). Currently only EPSG is supported.
+  ///
+  /// On the first call, all EPSG entries are loaded from the PROJ
+  /// database and cached. Subsequent calls are pure Map lookups.
+  ///
+  /// Requires GDAL >= 3.0. Throws [GdalException] if the native
+  /// function is not available.
+  ///
+  /// ```dart
+  /// final info = gdal.getCRSInfo('EPSG:4326');
+  /// print('${info.name}, ${info.type}'); // WGS 84, geographic2D
+  /// ```
+  CrsInfo getCRSInfo(String key) {
+    final parts = key.split(':');
+    if (parts.length != 2 || parts[0].isEmpty || parts[1].isEmpty) {
+      throw ArgumentError('Expected "AUTHORITY:CODE" format, got "$key"');
+    }
+    final authority = parts[0].toUpperCase();
+    final code = parts[1];
+
+    if (authority != 'EPSG') {
+      throw ArgumentError(
+          'Unsupported authority "$authority" — only EPSG is supported');
+    }
+    if (int.tryParse(code) == null) {
+      throw ArgumentError('Invalid EPSG code "$code"');
+    }
+
+    final normalizedKey = '$authority:$code';
+
+    final cached = _crsInfoCache[normalizedKey];
+    if (cached != null) return cached;
+
+    if (!_crsInfoLoaded) {
+      final list = _srs.getCRSInfoList('EPSG');
+      for (final info in list) {
+        _crsInfoCache[info.key] = info;
+      }
+      _crsInfoLoaded = true;
+    }
+
+    final result = _crsInfoCache[normalizedKey];
+    if (result == null) {
+      throw GdalException('CRS not found: $normalizedKey');
+    }
+    return result;
   }
 
   /// Creates a [SpatialReference] from an EPSG code (e.g., 4326).

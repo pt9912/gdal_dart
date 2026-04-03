@@ -2,6 +2,18 @@
 
 Alle relevanten Änderungen des Pakets werden hier dokumentiert.
 
+## 0.2.4
+
+### Added
+- `Gdal.getCRSInfo()` — CRS-Metadaten (Name, Typ, Bounding Box,
+  Projektionsmethode) per Authority-Key abrufen, per-Isolate gecached
+- `CrsInfo` Modell — immutables Dart-Objekt mit allen CRS-Metadaten
+  aus der PROJ-Datenbank
+- `CrsType` Enum — Geographic 2D/3D, Projected, Vertical, Compound, etc.
+- Native `OSRCRSInfo` Struct-Binding (erste FFI-Struct im Codebase)
+- Lazy Symbol-Lookup für `OSRGetCRSInfoListFromDatabase` /
+  `OSRDestroyCRSInfoList` — bricht nicht auf GDAL < 3.0
+
 ## 0.2.3
 
 ### Added
